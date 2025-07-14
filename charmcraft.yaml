@@ -1,0 +1,42 @@
+type: charm
+name: kafka-ui
+title: Kafka UI Charm
+summary: A good charm for Kafka UI
+description: |
+  Stuff for the Kafka UI charm
+  Stuff for the Kafka UI charm
+  Stuff for the Kafka UI charm
+  Stuff for the Kafka UI charm
+
+base: ubuntu@22.04
+platforms:
+  amd64:
+
+peers:
+  cluster:
+    interface: cluster
+  restart:
+    interface: rolling_op
+
+requires:
+  kafka-client:
+    interface: kafka_client
+    optional: false
+    limit: 1
+  karapace-client:
+    interface: karapace_client
+    optional: true
+    limit: 1
+  connect-client:
+    interface: connect_client
+    optional: true
+    limit: 1
+
+
+parts:
+  charm:
+    plugin: uv
+    source: .
+    build-snaps:
+      - astral-uv
+
