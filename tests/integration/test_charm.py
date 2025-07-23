@@ -76,6 +76,10 @@ def test_integrate(juju: jubilant.Juju):
         successes=10,
     )
 
+    status = juju.status()
+    for app in (APP_NAME, CONNECT_APP, KAFKA_APP):
+        assert status.apps[app].app_status.current == "active"
+
 
 def test_ui(juju: jubilant.Juju):
     secret_data = get_secret_by_label(juju.model, f"cluster.{APP_NAME}.app", owner=APP_NAME)
