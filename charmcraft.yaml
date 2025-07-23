@@ -31,7 +31,10 @@ requires:
     interface: connect_client
     optional: true
     limit: 1
-
+  certificates:
+    interface: tls-certificates
+    limit: 1
+    optional: true
 
 parts:
   charm:

@@ -2,37 +2,58 @@
 # Copyright 2025 marc
 # See LICENSE file for licensing details.
 
-import asyncio
 import logging
 from pathlib import Path
 
-import pytest
+import jubilant
 import yaml
-from pytest_operator.plugin import OpsTest
 
 logger = logging.getLogger(__name__)
 
 METADATA = yaml.safe_load(Path("./charmcraft.yaml").read_text())
 APP_NAME = METADATA["name"]
+CONNECT_APP = "kafka-connect"
+CONNECT_CHANNEL = "latest/edge"
+KAFKA_APP = "kafka"
+KAFKA_CHANNEL = "4/edge"
+TLS_APP = "self-signed-certificates"
 
 
-@pytest.mark.abort_on_fail
-async def test_build_and_deploy(ops_test: OpsTest):
+def all_active_idle(status: jubilant.Status, *apps: str):
+    """Check all units are in active|idle state."""
+    return jubilant.all_agents_idle(status, *apps) and jubilant.all_active(status, *apps)
+
+
+def test_build_and_deploy(juju: jubilant.Juju, ui_charm):
     """Build the charm-under-test and deploy it together with related charms.
 
     Assert on the unit status before any relations/configurations take place.
     """
-    # Build and deploy charm from local source folder
-    charm = await ops_test.build_charm(".")
-    resources = {
-        "some-container-image": METADATA["resources"]["some-container-image"]["upstream-source"]
-    }
+    juju.deploy(
+        KAFKA_APP,
+        app=KAFKA_APP,
+        trust=True,
+        channel=KAFKA_CHANNEL,
+        config={"roles": "broker,controller"},
+    )
+    juju.deploy(CONNECT_APP, app=CONNECT_APP, trust=True, channel=CONNECT_CHANNEL)
+    juju.deploy(TLS_APP, app=TLS_APP, trust=True)
+    juju.deploy(ui_charm, app=APP_NAME, trust=True)
 
-    # Deploy the charm and wait for active/idle status
-    assert ops_test.model is not None
-    await asyncio.gather(
-        ops_test.model.deploy(charm, resources=resources, application_name=APP_NAME),
-        ops_test.model.wait_for_idle(
-            apps=[APP_NAME], status="active", raise_on_blocked=True, timeout=1000
-        ),
+    juju.wait(
+        lambda status: jubilant.all_agents_idle(status, APP_NAME, KAFKA_APP),
+        delay=3,
+        timeout=1200,
+        successes=10,
+    )
+
+
+def test_integrate(juju: jubilant.Juju):
+    juju.integrate(APP_NAME, KAFKA_APP)
+
+    juju.wait(
+        lambda status: all_active_idle(status, APP_NAME, KAFKA_APP),
+        delay=3,
+        timeout=900,
+        successes=10,
     )
