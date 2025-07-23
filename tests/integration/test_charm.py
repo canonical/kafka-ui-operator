@@ -6,25 +6,26 @@ import logging
 from pathlib import Path
 
 import jubilant
-import yaml
+import requests
+from helpers import (
+    APP_NAME,
+    CONNECT_APP,
+    CONNECT_CHANNEL,
+    KAFKA_APP,
+    KAFKA_CHANNEL,
+    PORT,
+    PROTO,
+    SECRET_KEY,
+    TLS_APP,
+    all_active_idle,
+    get_secret_by_label,
+    get_unit_ipv4_address,
+)
 
 logger = logging.getLogger(__name__)
 
-METADATA = yaml.safe_load(Path("./charmcraft.yaml").read_text())
-APP_NAME = METADATA["name"]
-CONNECT_APP = "kafka-connect"
-CONNECT_CHANNEL = "latest/edge"
-KAFKA_APP = "kafka"
-KAFKA_CHANNEL = "4/edge"
-TLS_APP = "self-signed-certificates"
 
-
-def all_active_idle(status: jubilant.Status, *apps: str):
-    """Check all units are in active|idle state."""
-    return jubilant.all_agents_idle(status, *apps) and jubilant.all_active(status, *apps)
-
-
-def test_build_and_deploy(juju: jubilant.Juju, ui_charm):
+def test_build_and_deploy(juju: jubilant.Juju, ui_charm: Path):
     """Build the charm-under-test and deploy it together with related charms.
 
     Assert on the unit status before any relations/configurations take place.
@@ -74,3 +75,37 @@ def test_integrate(juju: jubilant.Juju):
         timeout=900,
         successes=10,
     )
+
+
+def test_ui(juju: jubilant.Juju):
+    secret_data = get_secret_by_label(juju.model, f"cluster.{APP_NAME}.app", owner=APP_NAME)
+    password = secret_data.get(SECRET_KEY)
+
+    if not password:
+        raise Exception("Can't fetch the admin user's password.")
+
+    unit_ip = get_unit_ipv4_address(juju.model, f"{APP_NAME}/0")
+    url = f"{PROTO}://{unit_ip}:{PORT}"
+
+    login_resp = requests.post(
+        f"{url}/login",
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        data={"username": "admin", "password": password},
+        verify=False,
+    )
+    assert login_resp.status_code == 200
+    # Successful login would lead to a redirect
+    assert len(login_resp.history) > 0
+
+    cookie = login_resp.history[0].cookies
+    clusters_resp = requests.get(
+        f"{url}/api/clusters",
+        headers={"Content-Type": "application/json"},
+        cookies=cookie,
+        verify=False,
+    )
+
+    clusters_json = clusters_resp.json()
+    logger.info(f"{clusters_json=}")
+    assert len(clusters_json) > 0
+    assert clusters_json[0].get("status") == "online"
