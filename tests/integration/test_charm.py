@@ -47,12 +47,29 @@ def test_build_and_deploy(juju: jubilant.Juju, ui_charm):
         successes=10,
     )
 
+    status = juju.status()
+    assert status.apps[APP_NAME].app_status.current == "blocked"
+    assert status.apps[CONNECT_APP].app_status.current == "blocked"
+    assert status.apps[KAFKA_APP].app_status.current == "active"
+
 
 def test_integrate(juju: jubilant.Juju):
-    juju.integrate(APP_NAME, KAFKA_APP)
+    # First integrate non-UI apps with Kafka
+    juju.integrate(CONNECT_APP, KAFKA_APP)
 
     juju.wait(
-        lambda status: all_active_idle(status, APP_NAME, KAFKA_APP),
+        lambda status: all_active_idle(status, CONNECT_APP, KAFKA_APP),
+        delay=3,
+        timeout=900,
+        successes=10,
+    )
+
+    # Now integrate all apps with UI app.
+    juju.integrate(APP_NAME, KAFKA_APP)
+    juju.integrate(APP_NAME, CONNECT_APP)
+
+    juju.wait(
+        lambda status: all_active_idle(status, APP_NAME, CONNECT_APP, KAFKA_APP),
         delay=3,
         timeout=900,
         successes=10,
