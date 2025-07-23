@@ -24,6 +24,11 @@ def pytest_addoption(parser):
         action="store_true",
         help="Keep models handled by opstest, can be overridden in track_model",
     )
+    parser.addoption(
+        "--tls",
+        action="store_true",
+        help="Whether to use TLS on tests or not",
+    )
 
 
 @pytest.fixture
@@ -55,6 +60,11 @@ def ui_charm() -> pathlib.Path:
         )
     else:
         raise ValueError(f"Unable to find .charm file for {architecture=} at {charm_path=}")
+
+
+@pytest.fixture
+def tls_enabled(request: pytest.FixtureRequest) -> bool:
+    return typing.cast(bool, request.config.getoption("--tls"))
 
 
 @pytest.fixture(scope="module")
