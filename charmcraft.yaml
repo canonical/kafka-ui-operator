@@ -8,9 +8,8 @@ description: |
   Stuff for the Kafka UI charm
   Stuff for the Kafka UI charm
 
-base: ubuntu@22.04
 platforms:
-  amd64:
+  ubuntu@24.04:amd64:
 
 peers:
   cluster:
