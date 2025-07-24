@@ -102,11 +102,10 @@ class Workload(WorkloadBase):
             return False
 
     def install(self) -> bool:
-        """Loads the Kafka snap from LP."""
+        """Installs the Charmed Kafka UI snap."""
         try:
             self.kafka_ui.ensure(snap.SnapState.Present, revision=SNAP_REVISION, channel="edge")
             self.kafka_ui.hold()
-
         except snap.SnapError as e:
             logger.error(str(e))
             return False
