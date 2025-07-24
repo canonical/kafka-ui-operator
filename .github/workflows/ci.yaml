@@ -53,7 +53,7 @@ jobs:
         tls:
           - "--tls"
           - ""
-    name: ${{ matrix.tox-environments }}
+    name: Integration ${{ matrix.tls }}
     needs:
       - lint
       - build
