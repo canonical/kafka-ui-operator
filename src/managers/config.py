@@ -36,28 +36,30 @@ class ConfigManager:
         return ["JAVA_OPTS='-Xms1G -Xmx1G -XX:+UseG1GC'"]
 
     @property
-    def basic_auth_and_tls_config(self) -> dict:
-        """Return basic auth & TLS config for the Spring Boot application."""
-        spring_boot_tls_config = (
-            {}
-            if not self.context.unit.tls.ready
-            else {
-                "ssl": {
-                    "bundle": {
-                        "jks": {
-                            "server": {
-                                "keystore": {
-                                    "location": self.workload.paths.keystore,
-                                    "password": self.context.unit.tls.keystore_password,
-                                    "type": "PKCS12",
-                                }
+    def spring_boot_tls_config(self) -> dict:
+        """Return TLS config for Spring Boot application."""
+        if not self.context.unit.tls.ready:
+            return {}
+
+        return {
+            "ssl": {
+                "bundle": {
+                    "jks": {
+                        "server": {
+                            "keystore": {
+                                "location": self.workload.paths.keystore,
+                                "password": self.context.unit.tls.keystore_password,
+                                "type": "PKCS12",
                             }
                         }
                     }
                 }
             }
-        )
+        }
 
+    @property
+    def basic_auth_and_tls_config(self) -> dict:
+        """Return basic auth & TLS config for the Spring Boot application."""
         return {
             "auth": {"type": "LOGIN_FORM"},
             "spring": {
@@ -68,7 +70,7 @@ class ConfigManager:
                     }
                 }
             }
-            | spring_boot_tls_config,
+            | self.spring_boot_tls_config,
         }
 
     @property
@@ -100,17 +102,16 @@ class ConfigManager:
     @property
     def cluster_tls_properties(self) -> dict:
         """Return TLS properties for the Kafka cluster."""
-        return (
-            {}
-            if not self.context.kafka_client.tls_enabled
-            else {
-                "ssl": {
-                    "truststore-location": self.workload.paths.truststore,
-                    "truststore-password": self.context.unit.tls.truststore_password,
-                    "verify-ssl": True,
-                }
+        if not self.context.kafka_client.tls_enabled:
+            return {}
+
+        return {
+            "ssl": {
+                "truststore-location": self.workload.paths.truststore,
+                "truststore-password": self.context.unit.tls.truststore_password,
+                "verify-ssl": True,
             }
-        )
+        }
 
     @property
     def kafka_connect_config(self) -> list[dict] | None:
@@ -165,7 +166,7 @@ class ConfigManager:
     @property
     def server_tls_config(self) -> dict:
         """Return TLS (HTTPS) config for the Kafka UI webserver."""
-        return {} if not self.context.unit.tls.ready else {"server": {"ssl": {"bundle": "server"}}}
+        return {"server": {"ssl": {"bundle": "server"}}} if self.context.unit.tls.ready else {}
 
     @property
     def application_local_config(self) -> dict:
