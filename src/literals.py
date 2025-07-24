@@ -13,7 +13,7 @@ from ops import ActiveStatus, BlockedStatus, MaintenanceStatus, StatusBase, Wait
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR"]
 
 SNAP_NAME = "charmed-kafka-ui"
-SNAP_REVISION = "1"
+SNAP_REVISION = "3"
 CONTAINER = "kafka-ui"
 SERVICE_NAME = "daemon"
 USER_NAME = "_daemon_"

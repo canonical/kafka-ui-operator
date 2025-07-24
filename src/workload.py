@@ -18,7 +18,7 @@ from tenacity import retry, retry_if_result, stop_after_attempt, wait_fixed
 from typing_extensions import override
 
 from core.workload import WorkloadBase
-from literals import GROUP, USER_NAME
+from literals import GROUP, SNAP_REVISION, USER_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -104,12 +104,8 @@ class Workload(WorkloadBase):
     def install(self) -> bool:
         """Installs the Charmed Kafka UI snap."""
         try:
-            os.system(
-                "wget https://github.com/imanenami/test-snaps/raw/refs/heads/main/charmed-kafka-ui_1.2.0_amd64.snap"
-            )
-            os.system("snap install --dangerous ./charmed-kafka-ui_1.2.0_amd64.snap")
-            # self.kafka_ui.ensure(snap.SnapState.Present, revision=SNAP_REVISION, channel="edge")
-            # self.kafka_ui.hold()
+            self.kafka_ui.ensure(snap.SnapState.Present, revision=SNAP_REVISION, channel="edge")
+            self.kafka_ui.hold()
         except snap.SnapError as e:
             logger.error(str(e))
             return False
