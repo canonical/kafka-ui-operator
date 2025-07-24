@@ -361,3 +361,15 @@ class TLSManager:
         self.set_bundle()
         self.set_truststore()
         self.set_keystore()
+
+    def update_truststore(self) -> None:
+        """Update Kafka, Kafka Connect and Karapace client certificates in the truststore."""
+        for client in (
+            self.context.kafka_client,
+            self.context.kafka_connect_client,
+            self.context.karapace_client,
+        ):
+            if client.tls_ca:
+                alias = client.relation.name
+                self.remove_cert(alias)
+                self.import_cert(alias=alias, filename=f"{alias}.pem", cert_content=client.tls_ca)

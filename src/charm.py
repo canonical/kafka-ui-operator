@@ -88,17 +88,7 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
                 {self.context.app.ADMIN_PASSWORD: self.workload.generate_password()}
             )
 
-        for client in (
-            self.context.kafka_client,
-            self.context.kafka_connect_client,
-            self.context.karapace_client,
-        ):
-            if client.tls_ca:
-                alias = client.__class__.__name__
-                self.tls_manager.remove_cert(alias)
-                self.tls_manager.import_cert(
-                    alias=alias, filename=f"{alias}.pem", cert_content=client.tls_ca
-                )
+        self.tls_manager.update_truststore()
 
         self.workload.set_environment(env_vars=self.config_manager.java_opts)
         self.workload.write(
