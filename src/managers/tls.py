@@ -5,6 +5,7 @@
 """Manager for handling TLS configuration."""
 
 import logging
+import re
 import socket
 import subprocess
 from dataclasses import dataclass
@@ -18,6 +19,9 @@ from charms.tls_certificates_interface.v4.tls_certificates import (
     generate_csr,
     generate_private_key,
 )
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
 from ops.pebble import ExecError
 
 from core.models import Context, GeneratedCa, SelfSignedCertificate, TLSContext, UnitContext
@@ -37,6 +41,8 @@ class Sans:
 
 class TLSManager:
     """Manager for building necessary files for Java TLS auth."""
+
+    DEFAULT_HASH_ALGORITHM: hashes.HashAlgorithm = hashes.SHA256()
 
     def __init__(
         self,
@@ -342,6 +348,23 @@ class TLSManager:
         )
         return True
 
+    def truststore_changed(self) -> bool:
+        """Check if related apps certs is different from what is stored in the truststore."""
+        currently_trusted = self.get_trusted_certificates(self.workload.paths.truststore).values()
+        changed = False
+        for client in (
+            self.context.kafka_client,
+            self.context.kafka_connect_client,
+            self.context.karapace_client,
+        ):
+            if (
+                client.tls_ca
+                and self.certificate_fingerprint(client.tls_ca) not in currently_trusted
+            ):
+                changed = True
+
+        return changed
+
     def remove_stores(self) -> None:
         """Clean up all keys/certs/stores on a unit."""
         for pattern in ["*.pem", "*.key", "*.p12", "*.jks"]:
@@ -362,6 +385,33 @@ class TLSManager:
         self.set_truststore()
         self.set_keystore()
 
+    def get_trusted_certificates(self, truststore_path: str) -> dict[str, bytes]:
+        """Return a mapping of alias to certificate fingerprint (hash) for a given truststore."""
+        if not (self.workload.root / truststore_path).exists():
+            return {}
+
+        command = [
+            self.keytool,
+            "-list",
+            "-keystore",
+            truststore_path,
+            "-storepass",
+            self.tls_context.truststore_password,
+            "-noprompt",
+        ]
+        raw = self.workload.exec(command=command, working_dir=self.workload.paths.config_dir)
+
+        # each record in the truststore has the following format:
+        #
+        # May DD, YYYY, trustedCertEntry,
+        # Certificate fingerprint (SHA-256): E5:2E:...:EB:F3
+        #
+        # SHA-256 is 32 bytes, so the hash would be 64 hex chars + 31 colons = 95 chars
+        return {
+            match[0]: self.keytool_hash_to_bytes(match[1])
+            for match in re.findall("(.+?),.+?trustedCertEntry.*?\n.+?([0-9a-fA-F:]{95})\n", raw)
+        }
+
     def update_truststore(self) -> None:
         """Update Kafka, Kafka Connect and Karapace client certificates in the truststore."""
         for client in (
@@ -373,3 +423,15 @@ class TLSManager:
                 alias = client.relation.name
                 self.remove_cert(alias)
                 self.import_cert(alias=alias, filename=f"{alias}.pem", cert_content=client.tls_ca)
+
+    @staticmethod
+    def certificate_fingerprint(cert: str):
+        """Return the certificate fingerprint using the default TLSManager algorithm."""
+        cert_obj = x509.load_pem_x509_certificate(cert.encode("utf-8"), default_backend())
+        hash_algorithm = cert_obj.signature_hash_algorithm or TLSManager.DEFAULT_HASH_ALGORITHM
+        return cert_obj.fingerprint(hash_algorithm)
+
+    @staticmethod
+    def keytool_hash_to_bytes(hash: str) -> bytes:
+        """Convert a hash in the keytool format (AB:CD:0F:...) to a bytes object."""
+        return bytes([int(s, 16) for s in hash.split(":")])

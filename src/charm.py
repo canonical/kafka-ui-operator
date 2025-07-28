@@ -77,7 +77,7 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
 
     def _on_config_changed(self, event: ops.EventBase) -> None:
         """Handle `config-changed` and general client `relation-changed` events."""
-        if not self.context.app:
+        if not all([self.workload.container_can_connect, self.context.app]):
             event.defer()
             return
 
@@ -88,7 +88,14 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
                 {self.context.app.ADMIN_PASSWORD: self.workload.generate_password()}
             )
 
-        self.tls_manager.update_truststore()
+        config_changed = self.config_manager.config_changed()
+        truststore_changed = self.tls_manager.truststore_changed()
+
+        if not any([config_changed, truststore_changed]):
+            return
+
+        if truststore_changed:
+            self.tls_manager.update_truststore()
 
         self.workload.set_environment(env_vars=self.config_manager.java_opts)
         self.workload.write(
@@ -100,7 +107,8 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
 
     def _on_update_status(self, _) -> None:
         """Handle `update-status` event."""
-        logger.debug("Update status")
+        logger.debug("Update status, emitting config-changed")
+        self.on.config_changed.emit()
 
     def _on_upgrade_charm(self, _: ops.EventBase) -> None:
         """Handle `upgrade-charm` event."""

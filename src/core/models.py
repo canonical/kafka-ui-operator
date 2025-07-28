@@ -510,10 +510,26 @@ class Context(WithStatus, Object):
         )
 
     @property
+    def bind_address(self) -> str:
+        """The network binding address from the peer relation."""
+        bind_address = ""
+
+        if self.peer_relation:
+            if binding := self.model.get_binding(self.peer_relation):
+                bind_address = binding.network.bind_address
+
+        return str(bind_address)
+
+    @property
+    def context_path(self) -> str:
+        """Return the relative path used to serve the UI."""
+        return f"/{self.model.name}-{self.model.app.name}" if SUBSTRATE == "k8s" else ""
+
+    @property
     def endpoint(self) -> str:
         """Returns the UI web server endpoint."""
-        proto = "http" if not self.unit.tls.ready else "https"
-        return f"{proto}://{self.unit.internal_address}:8080"
+        proto = "http" if not SUBSTRATE == "k8s" else "https"
+        return f"{proto}://{self.unit.internal_address}:8080{self.context_path}"
 
     @property
     @override

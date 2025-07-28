@@ -21,7 +21,7 @@ from ops.charm import (
 from ops.framework import EventBase, EventSource, Object
 
 from core.models import TLSContext
-from literals import TLS_REL
+from literals import SUBSTRATE, TLS_REL
 
 if TYPE_CHECKING:
     from charm import KafkaUiCharm
@@ -89,6 +89,9 @@ class TLSHandler(Object):
                 or self.charm.workload.generate_password(),
             }
         )
+
+        if SUBSTRATE == "k8s":
+            return
 
         # Generate a self-singend certificate
         self_signed = self.charm.tls_manager.generate_self_signed_certificate()

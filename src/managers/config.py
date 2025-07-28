@@ -9,6 +9,7 @@ import yaml
 from core.models import Context
 from core.structured_config import CharmConfig
 from core.workload import WorkloadBase
+from literals import SUBSTRATE
 
 
 class ConfigManager:
@@ -38,7 +39,7 @@ class ConfigManager:
     @property
     def spring_boot_tls_config(self) -> dict:
         """Return TLS config for Spring Boot application."""
-        if not self.context.unit.tls.ready:
+        if not self.context.unit.tls.ready or SUBSTRATE == "k8s":
             return {}
 
         return {
@@ -166,7 +167,25 @@ class ConfigManager:
     @property
     def server_tls_config(self) -> dict:
         """Return TLS (HTTPS) config for the Kafka UI webserver."""
-        return {"server": {"ssl": {"bundle": "server"}}} if self.context.unit.tls.ready else {}
+        return (
+            {"ssl": {"bundle": "server"}}
+            if self.context.unit.tls.ready and SUBSTRATE == "vm"
+            else {}
+        )
+
+    @property
+    def context_path_config(self) -> dict:
+        """Return Spring Boot context-path config for when the app is behind a reverse proxy."""
+        return (
+            {"servlet": {"context-path": self.context.context_path}} if SUBSTRATE == "k8s" else {}
+        )
+
+    @property
+    def server_config(self):
+        """Return Spring Boot `server` config."""
+        _config = self.server_tls_config | self.context_path_config
+
+        return {"server": _config} if _config else {}
 
     @property
     def application_local_config(self) -> dict:
@@ -176,7 +195,7 @@ class ConfigManager:
             | self.monitoring_config
             | self.basic_auth_and_tls_config
             | self.webclient_config
-            | self.server_tls_config
+            | self.server_config
         )
 
     @property
@@ -185,3 +204,9 @@ class ConfigManager:
         raw_yaml_string = yaml.dump(self.application_local_config, default_flow_style=False)
 
         return "\n".join([line for line in raw_yaml_string.splitlines() if line[-4:] != "null"])
+
+    def config_changed(self):
+        """Check if written config is different from current context."""
+        raw = "\n".join(self.workload.read(self.workload.paths.application_local_config))
+
+        return raw != self.clean_yaml_config
