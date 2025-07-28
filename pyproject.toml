@@ -8,10 +8,12 @@ requires-python = ">=3.10"
 # dependencies of any charmlibs that the charm uses (copy the dependencies from PYDEPS).
 dependencies = [
     "charmlibs-pathops>=1.0.1",
+    "cryptography>42.0.0",
     "ops>=3,<4",
     "pydantic<2",
     "ruamel-yaml>=0.18.14",
     "tenacity>=9.1.2",
+    "requests>=2.32.4",
 ]
 
 [dependency-groups]
@@ -29,7 +31,7 @@ unit = [
 integration = [
     "juju",
     "pytest",
-    "pytest-operator",
+    "jubilant>=1.0.0",
 ]
 
 # Testing tools configuration
