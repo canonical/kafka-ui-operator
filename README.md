@@ -66,7 +66,7 @@ The Charmed Kafka UI Operator supports Juju [relations](https://documentation.ub
 
 ## Contributing
 
-Please see the [Juju SDK docs](https://juju.is/docs/sdk) for guidelines on enhancements to this charm following best practice guidelines, and [CONTRIBUTING.md](https://github.com/canonical/kafka-connect-operator/blob/main/CONTRIBUTING.md) for developer guidance.
+Please see the [Juju SDK docs](https://juju.is/docs/sdk) for guidelines on enhancements to this charm following best practice guidelines, and [CONTRIBUTING.md](https://github.com/canonical/kafka-ui-operator/blob/main/CONTRIBUTING.md) for developer guidance.
 
 ### We are Hiring!
 
@@ -74,4 +74,4 @@ Also, if you truly enjoy working on open-source projects like this one and you w
 
 ## License
 
-The Charmed Kafka Connect Operator is free software, distributed under the Apache Software License, version 2.0. See [LICENSE](https://github.com/canonical/kafka-connect-operator/blob/main/LICENSE) for more information.
+The Charmed Kafka UI Operator is free software, distributed under the Apache Software License, version 2.0. See [LICENSE](https://github.com/canonical/kafka-ui-operator/blob/main/LICENSE) for more information.
