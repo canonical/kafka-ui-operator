@@ -3,9 +3,7 @@
 [![Release](https://github.com/canonical/kafka-ui-operator/actions/workflows/release.yaml/badge.svg)](https://github.com/canonical/kafka-ui-operator/actions/workflows/release.yaml)
 [![Tests](https://github.com/canonical/kafka-ui-operator/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/canonical/kafka-ui-operator/actions/workflows/ci.yaml?query=branch%3Amain)
 
-The Charmed Kafka UI Operator delivers automated operations management from day 0 to day 2 on [Kafkbat's Kafka UI](https://github.com/kafbat/kafka-ui).
-
-This operator can be found on [Charmhub](https://charmhub.io/kafka-ui) and it enables users of [Charmed Apache Kafka](https://charmhub.io/kafka) to:
+The Charmed Kafka UI Operator delivers automated operations management from day 0 to day 2 on [Kafkbat's Kafka UI](https://github.com/kafbat/kafka-ui), and enables users to:
 
 - View Apache Kafka cluster configuration, topics, ACLs, consumer groups and more
 - Broker performance monitoring via JMX metrics dashboards
