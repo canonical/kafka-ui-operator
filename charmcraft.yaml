@@ -1,12 +1,17 @@
+# Copyright 2025 Canonical Ltd.
+# See LICENSE file for licensing details.
+
 type: charm
 name: kafka-ui
+display-name: Kafka UI
 title: Kafka UI Charm
-summary: A good charm for Kafka UI
 description: |
-  Stuff for the Kafka UI charm
-  Stuff for the Kafka UI charm
-  Stuff for the Kafka UI charm
-  Stuff for the Kafka UI charm
+  Versatile, fast and lightweight web UI for managing Apache Kafka clusters.
+summary: Charmed Kafka UI Operator
+source: https://github.com/canonical/kafka-ui-operator
+issues: https://github.com/canonical/kafka-ui-operator/issues
+maintainers:
+  - Canonical Data Platform <data-platform@lists.launchpad.net>
 
 platforms:
   ubuntu@24.04:amd64:

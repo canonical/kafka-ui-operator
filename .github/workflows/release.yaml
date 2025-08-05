@@ -1,0 +1,31 @@
+# Copyright 2025 Canonical Ltd.
+# See LICENSE file for licensing details.
+name: Release to Charmhub
+
+on:
+  push:
+    branches:
+      - main
+      - fix-release
+
+jobs:
+  ci-tests:
+    uses: ./.github/workflows/ci.yaml
+    secrets: inherit
+    permissions:
+      contents: write # Needed to login to Discourse
+      pull-requests: write # Need to create PR
+      actions: write
+
+  release:
+    name: Release charm
+    needs:
+      - ci-tests
+    uses: canonical/data-platform-workflows/.github/workflows/release_charm.yaml@32.0.0
+    with:
+      channel: latest/edge
+      artifact-prefix: ${{ needs.ci-tests.outputs.artifact-prefix }}
+    secrets:
+      charmhub-token: ${{ secrets.CHARMHUB_TOKEN }}
+    permissions:
+      contents: write  # Needed to create git tags
