@@ -19,6 +19,8 @@ CONNECT_APP = "kafka-connect"
 CONNECT_CHANNEL = "latest/edge"
 KAFKA_APP = "kafka"
 KAFKA_CHANNEL = "4/edge"
+KARAPACE_APP = "karapace"
+KARAPACE_CHANNEL = "latest/edge"
 TLS_APP = "self-signed-certificates"
 
 PORT = 8080

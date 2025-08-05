@@ -14,6 +14,8 @@ from helpers import (
     CONNECT_CHANNEL,
     KAFKA_APP,
     KAFKA_CHANNEL,
+    KARAPACE_APP,
+    KARAPACE_CHANNEL,
     PORT,
     PROTO,
     SECRET_KEY,
@@ -29,7 +31,7 @@ logger = logging.getLogger(__name__)
 @pytest.fixture
 def apps() -> list[str]:
     """Return list of Kafka ecosystem apps."""
-    return [APP_NAME, CONNECT_APP, KAFKA_APP]
+    return [APP_NAME, CONNECT_APP, KAFKA_APP, KARAPACE_APP]
 
 
 def test_build_and_deploy(juju: jubilant.Juju, ui_charm: Path, tls_enabled: bool, apps: list[str]):
@@ -45,6 +47,7 @@ def test_build_and_deploy(juju: jubilant.Juju, ui_charm: Path, tls_enabled: bool
         config={"roles": "broker,controller"},
     )
     juju.deploy(CONNECT_APP, app=CONNECT_APP, trust=True, channel=CONNECT_CHANNEL)
+    juju.deploy(KARAPACE_APP, app=KARAPACE_APP, trust=True, channel=KARAPACE_CHANNEL)
     juju.deploy(ui_charm, app=APP_NAME, trust=True)
 
     if tls_enabled:
@@ -52,7 +55,9 @@ def test_build_and_deploy(juju: jubilant.Juju, ui_charm: Path, tls_enabled: bool
 
     _apps = apps + ([] if not tls_enabled else [TLS_APP])
     juju.wait(
-        lambda status: jubilant.all_agents_idle(status, *_apps),
+        lambda status: jubilant.all_agents_idle(status, *_apps)
+        and jubilant.all_blocked(status, APP_NAME, CONNECT_APP, KARAPACE_APP)
+        and jubilant.all_active(status, KAFKA_APP),
         delay=3,
         timeout=1200,
         successes=10,
@@ -61,15 +66,17 @@ def test_build_and_deploy(juju: jubilant.Juju, ui_charm: Path, tls_enabled: bool
     status = juju.status()
     assert status.apps[APP_NAME].app_status.current == "blocked"
     assert status.apps[CONNECT_APP].app_status.current == "blocked"
+    assert status.apps[KARAPACE_APP].app_status.current == "blocked"
     assert status.apps[KAFKA_APP].app_status.current == "active"
 
 
 def test_integrate(juju: jubilant.Juju, tls_enabled: bool, apps: list[str]):
     # First integrate non-UI apps with Kafka
     juju.integrate(CONNECT_APP, KAFKA_APP)
+    juju.integrate(KARAPACE_APP, KAFKA_APP)
 
     juju.wait(
-        lambda status: all_active_idle(status, CONNECT_APP, KAFKA_APP),
+        lambda status: all_active_idle(status, CONNECT_APP, KAFKA_APP, KARAPACE_APP),
         delay=3,
         timeout=900,
         successes=10,
@@ -81,7 +88,7 @@ def test_integrate(juju: jubilant.Juju, tls_enabled: bool, apps: list[str]):
             juju.integrate(TLS_APP, f"{app}:certificates")
 
     juju.wait(
-        lambda status: all_active_idle(status, CONNECT_APP, KAFKA_APP),
+        lambda status: all_active_idle(status, CONNECT_APP, KAFKA_APP, KARAPACE_APP),
         delay=3,
         timeout=900,
         successes=10,
@@ -92,7 +99,7 @@ def test_integrate(juju: jubilant.Juju, tls_enabled: bool, apps: list[str]):
     juju.integrate(APP_NAME, CONNECT_APP)
 
     juju.wait(
-        lambda status: all_active_idle(status, APP_NAME, CONNECT_APP, KAFKA_APP),
+        lambda status: all_active_idle(status, *apps),
         delay=3,
         timeout=900,
         successes=10,
