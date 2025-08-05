@@ -11,9 +11,9 @@ import requests
 from charms.data_platform_libs.v0.data_interfaces import (
     KafkaConnectRequirerEventHandlers,
     KafkaRequirerEventHandlers,
+    KarapaceRequirerEventHandlers,
 )
 from charms.data_platform_libs.v0.data_models import TypedCharmBase
-from charms.data_platform_libs.v0.karapace import KarapaceRequiresEventHandlers
 from ops import CollectStatusEvent
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_fixed
 
@@ -53,7 +53,7 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
         self.connect_events = KafkaConnectRequirerEventHandlers(
             self, self.context.connect_client_interface
         )
-        self.karapace_events = KarapaceRequiresEventHandlers(
+        self.karapace_events = KarapaceRequirerEventHandlers(
             self, self.context.karapace_client_interface
         )
         self.tls = TLSHandler(self)

@@ -15,9 +15,9 @@ from charms.data_platform_libs.v0.data_interfaces import (
     DataPeerUnitData,
     KafkaConnectRequirerData,
     KafkaRequirerData,
+    KarapaceRequirerData,
     RequirerData,
 )
-from charms.data_platform_libs.v0.karapace import KarapaceRequiresData
 from ops import Object
 from ops.model import Application, Relation, RelationDataAccessError, Unit
 from typing_extensions import TYPE_CHECKING, override
@@ -463,7 +463,7 @@ class Context(WithStatus, Object):
         self.connect_client_interface = KafkaConnectRequirerData(
             self.model, relation_name=KAFKA_CONNECT_REL, plugin_url=PLUGIN_URL_NOT_REQUIRED
         )
-        self.karapace_client_interface = KarapaceRequiresData(
+        self.karapace_client_interface = KarapaceRequirerData(
             self.model, relation_name=KARAPACE_REL, subject="__kafka-ui", extra_user_roles="admin"
         )
 
