@@ -3,15 +3,17 @@
 
 type: charm
 name: kafka-ui
-display-name: Kafka UI
 title: Kafka UI Charm
 description: |
   Versatile, fast and lightweight web UI for managing Apache Kafka clusters.
 summary: Charmed Kafka UI Operator
-source: https://github.com/canonical/kafka-ui-operator
-issues: https://github.com/canonical/kafka-ui-operator/issues
-maintainers:
-  - Canonical Data Platform <data-platform@lists.launchpad.net>
+links:
+  source:
+  - https://github.com/canonical/kafka-ui-operator
+  issues:
+  - https://github.com/canonical/kafka-ui-operator/issues
+  website:
+  - https://github.com/kafbat/kafka-ui
 
 platforms:
   ubuntu@24.04:amd64:
