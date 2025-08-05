@@ -8,9 +8,8 @@ description: |
   Stuff for the Kafka UI charm
   Stuff for the Kafka UI charm
 
-base: ubuntu@22.04
 platforms:
-  amd64:
+  ubuntu@24.04:amd64:
 
 peers:
   cluster:
@@ -31,7 +30,10 @@ requires:
     interface: connect_client
     optional: true
     limit: 1
-
+  certificates:
+    interface: tls-certificates
+    limit: 1
+    optional: true
 
 parts:
   charm:
