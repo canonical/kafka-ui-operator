@@ -14,28 +14,29 @@ The Charmed Kafka UI Operator uses the latest [`charmed-kafka-ui` snap](https://
 
 ## Usage
 
-Before using Charmed Kafka UI, an Apache Kafka cluster needs to be deployed. The Charmed Apache Kafka operator can be deployed as follows:
+Before using Charmed Kafka UI, an Apache Kafka cluster needs to be deployed. The [Charmed Apache Kafka operator](https://charmhub.io/kafka) can be deployed as follows:
 
 ```bash
 juju deploy kafka --channel 4/edge -n 3 --config roles="broker,controller"
 ```
 
-To deploy the Charmed Kafka UI operator and relate it with the Apache Kafka cluster, use the following commands:
+To deploy the Charmed Kafka UI operator and relate it with the Apache Kafka cluster:
 
 ```bash
 juju deploy kafka-ui --channel latest/edge
 juju integrate kafka-ui kafka
 ```
 
-Monitor the deployment via the `juju status` command. Once all the units show as `active|idle`, the Kafka UI is ready to be used.
+Check the deployment status via the `juju status` command. Once all the units are shown as `active|idle`, the Kafka UI is ready to be used.
 
-In order to access the Kafka UI, first save the internal CA certificate from the application to your local system:
+To access the Kafka UI, first save the internal CA certificate from the application to your local system:
 
 ```bash
 juju ssh kafka-ui/0 sudo -i 'cat /var/snap/charmed-kafka-ui/current/etc/kafka-ui/ca.pem' 2>/dev/null > /tmp/ca.pem
 ```
 
 Then, follow your browser's instructions for setting up Certificate Authorities (CAs), using the above CA. For example:
+
 - **Firefox** - [Set up Certificate Authorities (CAs) in Firefox](https://support.mozilla.org/en-US/kb/setting-certificate-authorities-firefox)
 - **Google Chrome** - [Set up TLS (or SSL) inspection on Chrome devices](https://support.google.com/chrome/a/answer/3505249?hl=en)
 
