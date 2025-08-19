@@ -97,6 +97,7 @@ def test_integrate(juju: jubilant.Juju, tls_enabled: bool, apps: list[str]):
     # Now integrate all apps with UI app.
     juju.integrate(APP_NAME, KAFKA_APP)
     juju.integrate(APP_NAME, CONNECT_APP)
+    juju.integrate(APP_NAME, KARAPACE_APP)
 
     juju.wait(
         lambda status: all_active_idle(status, *apps),

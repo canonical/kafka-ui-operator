@@ -1,0 +1,41 @@
+# Copyright 2025 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+name: kafka-ui
+title: Kafka UI Charm
+description: |
+  Versatile, fast and lightweight web UI for managing Apache Kafka clusters.
+summary: Charmed Kafka UI Operator
+links:
+  source:
+  - https://github.com/canonical/kafka-ui-operator
+  issues:
+  - https://github.com/canonical/kafka-ui-operator/issues
+  website:
+  - https://github.com/kafbat/kafka-ui
+
+
+peers:
+  cluster:
+    interface: cluster
+  restart:
+    interface: rolling_op
+
+requires:
+  kafka-client:
+    interface: kafka_client
+    optional: false
+    limit: 1
+  karapace-client:
+    interface: karapace_client
+    optional: true
+    limit: 1
+  connect-client:
+    interface: connect_client
+    optional: true
+    limit: 1
+  certificates:
+    interface: tls-certificates
+    limit: 1
+    optional: true
+

@@ -26,9 +26,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Install tools
-        run: |
-          sudo snap install --classic astral-uv
-          uv tool install tox --with tox-uv
+        run: pipx install tox
       - name: Run linters
         run: tox run -e lint
 
@@ -68,10 +66,6 @@ jobs:
           provider: lxd
           juju-channel: 3.6/stable
           bootstrap-options: "--agent-version 3.6.8"
-      - name: Install tools
-        run: |
-          sudo snap install --classic astral-uv
-          uv tool install tox --with tox-uv
       - name: Download packed charm(s)
         uses: actions/download-artifact@v4
         with:
