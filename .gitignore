@@ -8,3 +8,21 @@ __pycache__/
 *.py[cod]
 .idea
 .vscode/
+
+# Terraform state files
+*.tfstate
+*.tfstate.*
+
+# Terraform cache directory
+.terraform/
+
+# Terraform CLI configuration files
+.terraformrc
+terraform.rc
+
+# Variable definition files (if sensitive data is present)
+*.tfvars
+*.tfvars.json
+
+# Crash log files
+crash.log
