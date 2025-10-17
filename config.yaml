@@ -1,0 +1,8 @@
+options:
+  system-users:
+    description: |
+      User-provided secret ID which defines administrator username/passwords on the Apache Kafka UI.
+      The secret ID format is like "secret:cvh7kruupa1s46bqvuig" and should not be confused with secret name or label.
+      The secret could be defined using `juju add-secret <secret-name> admin=<admin-password>` command,
+      The `juju add-secret` command will output the secret ID, which can then be granted to the charm and configured using `juju config` command.
+    type: string

@@ -20,6 +20,7 @@ from tenacity import retry, retry_if_exception, stop_after_attempt, wait_fixed
 from core.models import Context
 from core.structured_config import CharmConfig
 from events.tls import TLSHandler
+from events.user_secrets import SecretsHandler
 from literals import KAFKA_CONNECT_REL, KAFKA_REL, KARAPACE_REL, SUBSTRATE, DebugLevel, Status
 from managers.config import ConfigManager
 from managers.tls import TLSManager
@@ -57,6 +58,7 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
             self, self.context.karapace_client_interface
         )
         self.tls = TLSHandler(self)
+        self.user_secrets = SecretsHandler(self)
 
         self.framework.observe(self.on.install, self._on_install)
         self.framework.observe(self.on.upgrade_charm, self._on_upgrade_charm)

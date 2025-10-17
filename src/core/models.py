@@ -387,6 +387,10 @@ class AppContext(RelationContext):
 
         return self.relation_data.get(self.ADMIN_PASSWORD, "")
 
+    @admin_password.setter
+    def admin_password(self, value: str) -> None:
+        self.update({self.ADMIN_PASSWORD: value})
+
     @property
     @override
     def status(self) -> Status:
