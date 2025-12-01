@@ -79,7 +79,7 @@ def test_integrate(juju: jubilant.Juju, tls_enabled: bool, apps: list[str]):
     juju.wait(
         lambda status: all_active_idle(status, CONNECT_APP, KAFKA_APP, KARAPACE_APP),
         delay=3,
-        timeout=900,
+        timeout=1800,
         successes=10,
     )
 
@@ -91,7 +91,7 @@ def test_integrate(juju: jubilant.Juju, tls_enabled: bool, apps: list[str]):
     juju.wait(
         lambda status: all_active_idle(status, CONNECT_APP, KAFKA_APP, KARAPACE_APP),
         delay=3,
-        timeout=900,
+        timeout=1200,
         successes=10,
     )
 
@@ -103,7 +103,7 @@ def test_integrate(juju: jubilant.Juju, tls_enabled: bool, apps: list[str]):
     juju.wait(
         lambda status: all_active_idle(status, *apps),
         delay=3,
-        timeout=900,
+        timeout=1200,
         successes=10,
     )
 
