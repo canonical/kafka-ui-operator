@@ -24,6 +24,7 @@ KAFKA_CHANNEL = "4/edge"
 KARAPACE_APP = "karapace"
 KARAPACE_CHANNEL = "latest/edge"
 TLS_APP = "self-signed-certificates"
+TLS_CHANNEL = "1/stable"
 ADMIN_USER = AppContext.ADMIN_USERNAME
 TEST_SECRET_NAME = "authsecret"
 AUTH_SECRET_CONFIG_KEY = "system-users"
