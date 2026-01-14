@@ -20,6 +20,7 @@ from helpers import (
     PROTO,
     SECRET_KEY,
     TLS_APP,
+    TLS_CHANNEL,
     all_active_idle,
     get_secret_by_label,
     get_unit_ipv4_address,
@@ -52,7 +53,7 @@ def test_build_and_deploy(juju: jubilant.Juju, ui_charm: Path, tls_enabled: bool
     juju.deploy(ui_charm, app=APP_NAME, trust=True)
 
     if tls_enabled:
-        juju.deploy(TLS_APP, app=TLS_APP, trust=True)
+        juju.deploy(TLS_APP, app=TLS_APP, channel=TLS_CHANNEL, trust=True)
 
     _apps = apps + ([] if not tls_enabled else [TLS_APP])
     juju.wait(
