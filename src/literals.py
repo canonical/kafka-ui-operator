@@ -27,6 +27,8 @@ PEER_REL = "cluster"
 KAFKA_REL = "kafka-client"
 KAFKA_CONNECT_REL = "connect-client"
 KARAPACE_REL = "karapace-client"
+OAUTH_REL = "oauth"
+OAUTH_CLIENT_NAME = "custom"
 TLS_REL = "certificates"
 
 Substrates = Literal["vm", "k8s"]

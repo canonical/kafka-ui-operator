@@ -14,6 +14,7 @@ from charms.data_platform_libs.v0.data_interfaces import (
     KarapaceRequirerEventHandlers,
 )
 from charms.data_platform_libs.v0.data_models import TypedCharmBase
+from charms.hydra.v0.oauth import ClientConfig, OAuthRequirer
 from ops import CollectStatusEvent
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_fixed
 
@@ -21,7 +22,16 @@ from core.models import Context
 from core.structured_config import CharmConfig
 from events.tls import TLSHandler
 from events.user_secrets import SecretsHandler
-from literals import KAFKA_CONNECT_REL, KAFKA_REL, KARAPACE_REL, SUBSTRATE, DebugLevel, Status
+from literals import (
+    KAFKA_CONNECT_REL,
+    KAFKA_REL,
+    KARAPACE_REL,
+    OAUTH_CLIENT_NAME,
+    OAUTH_REL,
+    SUBSTRATE,
+    DebugLevel,
+    Status,
+)
 from managers.config import ConfigManager
 from managers.tls import TLSManager
 from workload import Workload
@@ -60,6 +70,13 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
         self.tls = TLSHandler(self)
         self.user_secrets = SecretsHandler(self)
 
+        self.oauth_config = ClientConfig(
+            redirect_uri=f"{self.context.endpoint}/login/oauth2/code/{OAUTH_CLIENT_NAME}",
+            scope="openid email profile",
+            grant_types=["client_credentials"],
+        )
+        self.oauth = OAuthRequirer(self, self.oauth_config, relation_name=OAUTH_REL)
+
         self.framework.observe(self.on.install, self._on_install)
         self.framework.observe(self.on.upgrade_charm, self._on_upgrade_charm)
         self.framework.observe(self.on.config_changed, self._on_config_changed)
@@ -67,7 +84,7 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
         self.framework.observe(self.on.collect_unit_status, self._on_collect_status)
         self.framework.observe(self.on.collect_app_status, self._on_collect_status)
 
-        for relation in [KAFKA_REL, KAFKA_CONNECT_REL, KARAPACE_REL]:
+        for relation in [KAFKA_REL, KAFKA_CONNECT_REL, KARAPACE_REL, OAUTH_REL]:
             self.framework.observe(self.on[relation].relation_changed, self._on_config_changed)
             self.framework.observe(self.on[relation].relation_broken, self._on_config_changed)
 
@@ -104,6 +121,9 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
             content=self.config_manager.clean_yaml_config,
             path=self.workload.paths.application_local_config,
         )
+
+        if self.context.oauth_relation:
+            self.oauth.update_client_config(self.oauth_config)
 
         self.workload.restart()
 

@@ -7,6 +7,7 @@
 import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import MutableMapping
 
 from charms.data_platform_libs.v0.data_interfaces import (
     PLUGIN_URL_NOT_REQUIRED,
@@ -27,6 +28,7 @@ from literals import (
     KAFKA_CONNECT_REL,
     KAFKA_REL,
     KARAPACE_REL,
+    OAUTH_REL,
     PEER_REL,
     SUBSTRATE,
     Status,
@@ -370,6 +372,57 @@ class TLSContext(RelationContext):
         return None
 
 
+class OAuthContext:
+    """State collection metadata for the oauth relation."""
+
+    def __init__(self, model, relation: Relation | None):
+        self.model = model
+        self.relation = relation
+
+    @property
+    def relation_data(self) -> MutableMapping[str, str]:
+        """Oauth relation data object."""
+        if not self.relation or not self.relation.app:
+            return {}
+
+        return self.relation.data[self.relation.app]
+
+    @property
+    def client_id(self) -> str:
+        """The OAuth client ID."""
+        return self.relation_data.get("client_id", "")
+
+    @property
+    def client_secret(self) -> str:
+        """The OAuth client secret."""
+        client_secret_id = self.relation_data.get("client_secret_id")
+        if not client_secret_id:
+            return ""
+
+        _client_secret = self.model.get_secret(id=client_secret_id)
+        return _client_secret.get_content()["secret"]
+
+    @property
+    def issuer_url(self) -> str:
+        """The issuer URL to identify the IDP."""
+        return self.relation_data.get("issuer_url", "")
+
+    @property
+    def jwks_endpoint(self) -> str:
+        """The JWKS endpoint needed to validate JWT tokens."""
+        return self.relation_data.get("jwks_endpoint", "")
+
+    @property
+    def introspection_endpoint(self) -> str:
+        """The introspection endpoint needed to validate non-JWT tokens."""
+        return self.relation_data.get("introspection_endpoint", "")
+
+    @property
+    def jwt_access_token(self) -> bool:
+        """A flag indicating if the access token is JWT or not."""
+        return self.relation_data.get("jwt_access_token", "false").lower() == "true"
+
+
 class AppContext(RelationContext):
     """Context collection metadata for Kafka UI peer relation."""
 
@@ -495,6 +548,16 @@ class Context(WithStatus, Object):
         return self.model.get_relation(PEER_REL)
 
     @property
+    def oauth_relation(self) -> Relation | None:
+        """The OAuth relation."""
+        return self.model.get_relation(OAUTH_REL)
+
+    @property
+    def oauth(self) -> OAuthContext:
+        """The OAuth relation context."""
+        return OAuthContext(self.model, self.oauth_relation)
+
+    @property
     def kafka_client(self) -> KafkaClientContext:
         """Returns context of the kafka-client relation."""
         return KafkaClientContext(self.model.get_relation(KAFKA_REL), self.kafka_client_interface)
@@ -532,7 +595,7 @@ class Context(WithStatus, Object):
     @property
     def endpoint(self) -> str:
         """Returns the UI web server endpoint."""
-        proto = "http" if not SUBSTRATE == "k8s" else "https"
+        proto = "https"
         return f"{proto}://{self.unit.internal_address}:8080{self.context_path}"
 
     @property

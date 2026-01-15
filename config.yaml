@@ -1,4 +1,13 @@
 options:
+  roles-mapping:
+    type: string
+    default: "{}"
+    description: |
+      Mapping between OAuth usernames and Kafka UI roles. The mapping
+      will be a JSON with the following format: `{"<oauth-id>": "<role>", ...}`
+      Currently supported values for <role> are: "admin".
+      This option will always represent a complete state of expected assignments,
+      passing an empty JSON will reset all previously set users.
   system-users:
     description: |
       User-provided secret ID which defines administrator username/passwords on the Apache Kafka UI.
@@ -6,3 +15,8 @@ options:
       The secret could be defined using `juju add-secret <secret-name> admin=<admin-password>` command,
       The `juju add-secret` command will output the secret ID, which can then be granted to the charm and configured using `juju config` command.
     type: string
+  username-attribute:
+    description: |
+      Username attribute in OAuth token, ignored if not using OAuth.
+    type: string
+    default: sub

@@ -9,7 +9,7 @@ python = ">=3.10,<4.0"
 charmlibs-pathops = ">=1.0.1"
 cryptography = ">42.0.0"
 ops = ">=3,<4"
-pydantic = "<2"
+pydantic = ">=2"
 ruamel-yaml = ">=0.18.14"
 tenacity = ">=9.1.2"
 requests = ">=2.32.4"
@@ -17,6 +17,8 @@ requests = ">=2.32.4"
 [tool.poetry.group.charm-libs.dependencies]
 # data_platform_libs/v0/data_interfaces.py
 ops = ">=2.0.0"
+# hydra/v0/oauth.py
+jsonschema = "*"
 
 [tool.poetry.group.fmt]
 optional = true

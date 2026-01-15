@@ -9,7 +9,20 @@ import yaml
 from core.models import Context
 from core.structured_config import CharmConfig
 from core.workload import WorkloadBase
-from literals import SUBSTRATE
+from literals import OAUTH_CLIENT_NAME, SUBSTRATE
+
+ADMIN_PERMISSIONS = [
+    {"resource": "applicationconfig", "actions": "all"},
+    {"resource": "clusterconfig", "actions": "all"},
+    {"resource": "topic", "value": ".*", "actions": "all"},
+    {"resource": "consumer", "value": ".*", "actions": "all"},
+    {"resource": "schema", "value": ".*", "actions": "all"},
+    {"resource": "connect", "value": ".*", "actions": "all"},
+    {"resource": "ksql", "actions": "all"},
+    {"resource": "acl", "actions": ["view"]},
+]
+
+ROLE_PERMISSION_MAPPING = {"admin": ADMIN_PERMISSIONS}
 
 
 class ConfigManager:
@@ -34,7 +47,13 @@ class ConfigManager:
     @property
     def java_opts(self) -> list[str]:
         """Return JAVA_OPTS environment variable setting."""
-        return ["JAVA_OPTS='-Xms1G -Xmx1G -XX:+UseG1GC'"]
+        truststore_opts = " ".join(
+            [
+                f"-Djavax.net.ssl.trustStore={self.workload.paths.truststore}",
+                f"-Djavax.net.ssl.trustStorePassword={self.context.unit.tls.truststore_password}",
+            ]
+        )
+        return [f"JAVA_OPTS='-Xms1G -Xmx1G -XX:+UseG1GC {truststore_opts}'"]
 
     @property
     def spring_boot_tls_config(self) -> dict:
@@ -59,10 +78,35 @@ class ConfigManager:
         }
 
     @property
+    def oauth_config(self) -> dict:
+        """Return OAuth config."""
+        if not self.context.oauth_relation:
+            return {}
+
+        return {
+            "type": "OAUTH2",
+            "oauth2": {
+                "client": {
+                    OAUTH_CLIENT_NAME: {
+                        "provider": "hydra",
+                        "clientId": self.context.oauth.client_id,
+                        "clientSecret": self.context.oauth.client_secret,
+                        "scope": "openid",
+                        "client-name": OAUTH_CLIENT_NAME,
+                        "authorization-grant-type": "authorization_code",
+                        "issuer-uri": self.context.oauth.issuer_url,
+                        "jwk-set-uri": self.context.oauth.jwks_endpoint,
+                        "user-name-attribute": self.config.username_attribute,
+                    }
+                }
+            },
+        }
+
+    @property
     def basic_auth_and_tls_config(self) -> dict:
         """Return basic auth & TLS config for the Spring Boot application."""
         return {
-            "auth": {"type": "LOGIN_FORM"},
+            "auth": {"type": "LOGIN_FORM"} if not self.oauth_config else self.oauth_config,
             "spring": {
                 "security": {
                     "user": {
@@ -98,6 +142,8 @@ class ConfigManager:
             "sasl.jaas.config": f"org.apache.kafka.common.security.scram.ScramLoginModule "
             f'required username="{self.context.kafka_client.username}" '
             f'password="{self.context.kafka_client.password}";',
+            "ssl.truststore.location": self.workload.paths.truststore,
+            "ssl.truststore.password": self.context.unit.tls.truststore_password,
         }
 
     @property
@@ -188,6 +234,29 @@ class ConfigManager:
         return {"server": _config} if _config else {}
 
     @property
+    def rbac_config(self) -> dict:
+        """Return the RBAC config."""
+        if not self.context.oauth_relation:
+            return {}
+
+        return {
+            "rbac": {
+                "roles": [
+                    {
+                        "name": role,
+                        "clusters": ["kafka"],
+                        "subjects": [
+                            {"provider": "oauth", "type": "user", "value": username}
+                            for username in self.get_users_for_role(role)
+                        ],
+                        "permissions": permissions,
+                    }
+                    for role, permissions in ROLE_PERMISSION_MAPPING.items()
+                ]
+            }
+        }
+
+    @property
     def application_local_config(self) -> dict:
         """Return the final application configuration object."""
         return (
@@ -196,6 +265,7 @@ class ConfigManager:
             | self.basic_auth_and_tls_config
             | self.webclient_config
             | self.server_config
+            | self.rbac_config
         )
 
     @property
@@ -210,3 +280,14 @@ class ConfigManager:
         raw = "\n".join(self.workload.read(self.workload.paths.application_local_config))
 
         return raw != self.clean_yaml_config
+
+    def get_users_for_role(self, role: str) -> list[str]:
+        """Return a list of users with the designated role.
+
+        This method reflects the current `roles-mapping` config value.
+        """
+        return [
+            user
+            for user, _role in ({"admin": "admin"} | self.config.roles_mapping).items()
+            if _role == role
+        ]
