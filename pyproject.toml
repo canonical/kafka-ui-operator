@@ -38,7 +38,7 @@ pyright = "^1.1.301"
 optional = true
 
 [tool.poetry.group.unit.dependencies]
-pytest = ">=7.2"
+pytest = ">=9.0.3"
 coverage = { extras = ["toml"], version = ">7.0" }
 pytest-mock = "^3.11.1"
 ops = { version = ">=2.23,<4.0", extras = ["testing"] }
@@ -47,7 +47,7 @@ ops = { version = ">=2.23,<4.0", extras = ["testing"] }
 optional = true
 
 [tool.poetry.group.integration.dependencies]
-pytest = ">=7.2"
+pytest = ">=9.0.3"
 juju = "^3.6.0.0"
 jubilant = ">=1.0.0"
 
