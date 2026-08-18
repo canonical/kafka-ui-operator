@@ -47,11 +47,12 @@ jobs:
       fail-fast: false
       matrix:
         tox-environments:
-          - integration
+          - integration-charm
+          - integration-oauth
         tls:
           - "--tls"
           - ""
-    name: Integration ${{ matrix.tls }}
+    name: ${{ matrix.tox-environments }} ${{ matrix.tls }}
     needs:
       - lint
       - build
@@ -61,10 +62,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
       - name: Setup operator environment
-        uses: charmed-kubernetes/actions-operator@main
-        with:
-          provider: lxd
-          juju-channel: 3.6/stable
+        run: |
+          sudo snap install concierge --classic
+          sudo concierge prepare --trace --extra-debs pipx
+      - name: Install dependencies
+        run: |
+          pipx install tox
+          pipx ensurepath
+      - name: Install terraform snap
+        run: |
+          sudo snap install terraform --channel=latest/stable --classic
       - name: Download packed charm(s)
         uses: actions/download-artifact@v6
         with:

@@ -13,6 +13,8 @@ pydantic = "<2"
 ruamel-yaml = ">=0.18.14"
 tenacity = ">=9.1.2"
 requests = ">=2.32.4"
+charmlibs-interfaces-oauth = "1.0.0"
+charmlibs-interfaces-certificate-transfer = "1.0.0"
 
 [tool.poetry.group.charm-libs.dependencies]
 # data_platform_libs/v0/data_interfaces.py
@@ -50,6 +52,12 @@ optional = true
 pytest = ">=7.2"
 juju = "^3.6.0.0"
 jubilant = ">=1.0.0"
+
+# Oauth tests
+pytest-operator = "^0.43.0"
+pytest-asyncio = "^0.21.2"
+pytest-playwright = "^0.7.0"
+oauth_tools = { git = "https://github.com/canonical/iam-bundle", tag = "oauth_tools-v0.1.2" }
 
 
 # Testing tools configuration

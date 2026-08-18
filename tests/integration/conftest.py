@@ -2,6 +2,7 @@
 # Copyright 2022 Canonical Ltd.
 # See LICENSE file for licensing details.
 
+import json
 import os
 import pathlib
 import subprocess
@@ -14,21 +15,33 @@ import pytest
 def pytest_addoption(parser):
     """Define pytest parsers."""
     parser.addoption(
-        "--model",
-        action="store",
-        help="Juju model to use; if not provided, a new model "
-        "will be created for each test which requires one",
-    )
-    parser.addoption(
-        "--keep-models",
-        action="store_true",
-        help="Keep models handled by opstest, can be overridden in track_model",
-    )
-    parser.addoption(
         "--tls",
         action="store_true",
         help="Whether to use TLS on tests or not",
     )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _pin_lxd_controller(request: pytest.FixtureRequest) -> None:
+    """Pin `ops_test` (pytest-operator) to the LXD controller.
+
+    After `concierge prepare` bootstraps both `concierge-lxd` and `concierge-k8s`,
+    `jujudata.current_controller()` is not reliably the LXD one, so resolve the
+    controller whose cloud is `localhost` and set it before `ops_test` builds its model.
+    """
+    controllers = json.loads(
+        subprocess.run(
+            ["juju", "controllers", "--format", "json"],
+            capture_output=True,
+            check=True,
+            text=True,
+        ).stdout
+    ).get("controllers", {})
+
+    for name, info in controllers.items():
+        if info.get("cloud") == "localhost":
+            request.config.option.controller = name
+            break
 
 
 @pytest.fixture

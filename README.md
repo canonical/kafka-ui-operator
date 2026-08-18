@@ -64,6 +64,8 @@ The Charmed Kafka UI Operator supports Juju [relations](https://documentation.ub
 - A `karapace_client` integration with Charmed Karapace
 - A `connect_client` integration with Charmed Apache Kafka Connect
 - A `tls-certificates` interface with any provider charm to manage certificates
+- An `oauth` interface with Hydra provider using the [Canonical identity platform](https://canonical-identity.readthedocs-hosted.com/)
+- A `certificate_transfer` interface with oauth specific certificates provider to trust the CA they use
 
 ## Contributing
 

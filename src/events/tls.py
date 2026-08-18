@@ -144,12 +144,15 @@ class TLSHandler(Object):
             event.defer()
             return
 
+        self.init_unit_tls()
+
         certificate = event.certificate.raw
         ca = event.ca.raw
         chain = json.dumps([certificate.raw for certificate in event.chain])
 
         self.charm.context.unit.update(
             {
+                TLSContext.PRIVATE_KEY: self.certificates.private_key.raw,
                 TLSContext.CERT: certificate,
                 TLSContext.CHAIN: chain,
                 TLSContext.CA: ca,
