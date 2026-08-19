@@ -96,7 +96,7 @@ async def test_build_and_deploy(
     iam_deployer.apply(tfvars)
     outputs = iam_deployer.output()
 
-    iam_juju = jubilant.Juju(model=IAM_MODEL)
+    iam_juju = jubilant.Juju(model=f"{OFFERING_CONTROLLER}:{IAM_MODEL}")
     iam_juju.wait(
         lambda status: all_active_idle(status, *IAM_APPS),
         delay=10,

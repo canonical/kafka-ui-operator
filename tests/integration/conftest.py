@@ -21,27 +21,32 @@ def pytest_addoption(parser):
     )
 
 
-@pytest.fixture(scope="session", autouse=True)
-def _pin_lxd_controller(request: pytest.FixtureRequest) -> None:
-    """Pin `ops_test` (pytest-operator) to the LXD controller.
-
-    After `concierge prepare` bootstraps both `concierge-lxd` and `concierge-k8s`,
-    `jujudata.current_controller()` is not reliably the LXD one, so resolve the
-    controller whose cloud is `localhost` and set it before `ops_test` builds its model.
-    """
-    controllers = json.loads(
-        subprocess.run(
-            ["juju", "controllers", "--format", "json"],
-            capture_output=True,
-            check=True,
-            text=True,
-        ).stdout
-    ).get("controllers", {})
+@pytest.fixture(scope="session")
+def lxd_controller() -> str | None:
+    """Resolve the LXD controller."""
+    controllers = (
+        json.loads(
+            subprocess.run(
+                ["juju", "controllers", "--format", "json"],
+                capture_output=True,
+                check=True,
+                text=True,
+            ).stdout
+        ).get("controllers")
+        or {}
+    )
 
     for name, info in controllers.items():
         if info.get("cloud") == "localhost":
-            request.config.option.controller = name
-            break
+            return name
+    return None
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _pin_lxd_controller(request: pytest.FixtureRequest, lxd_controller: str | None) -> None:
+    """Pin `ops_test` (pytest-operator) to the LXD controller."""
+    if lxd_controller is not None:
+        request.config.option.controller = lxd_controller
 
 
 @pytest.fixture
@@ -81,12 +86,12 @@ def tls_enabled(request: pytest.FixtureRequest) -> bool:
 
 
 @pytest.fixture(scope="module")
-def juju(request: pytest.FixtureRequest):
+def juju(request: pytest.FixtureRequest, lxd_controller: str | None):
     model = request.config.getoption("--model")
     keep_models = typing.cast(bool, request.config.getoption("--keep-models"))
 
     if model is None:
-        with jubilant.temp_model(keep=keep_models) as juju:
+        with jubilant.temp_model(keep=keep_models, controller=lxd_controller) as juju:
             juju.wait_timeout = 10 * 60
             juju.model_config({"update-status-hook-interval": "90s"})
             yield juju
