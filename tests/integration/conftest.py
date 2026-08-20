@@ -44,9 +44,14 @@ def lxd_controller() -> str | None:
 
 @pytest.fixture(scope="session", autouse=True)
 def _pin_lxd_controller(request: pytest.FixtureRequest, lxd_controller: str | None) -> None:
-    """Pin `ops_test` (pytest-operator) to the LXD controller."""
+    """Pin `ops_test` (pytest-operator) to the LXD controller and its machine cloud.
+
+    The controller also hosts the k8s cloud that the identity platform is deployed
+    to, so the cloud is set explicitly to keep the charm under test on machines.
+    """
     if lxd_controller is not None:
         request.config.option.controller = lxd_controller
+    request.config.option.cloud = "localhost"
 
 
 @pytest.fixture

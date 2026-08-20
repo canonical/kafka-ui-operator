@@ -41,7 +41,6 @@ logger = logging.getLogger(__name__)
 
 
 DEX_PROVIDER_ID = "Dex"
-OFFERING_CONTROLLER = "concierge-k8s"
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -52,20 +51,26 @@ def _require_tls(request: pytest.FixtureRequest):
 
 
 @pytest.fixture(scope="module")
-def iam_deployer(ops_test: OpsTest):
+def iam_deployer(lxd_controller: str | None):
     """Own the lifecycle of the terraform-managed identity platform."""
-    deployer = TerraformDeployer(controller=OFFERING_CONTROLLER)
+    deployer = TerraformDeployer(controller=lxd_controller)
     deployer.cleanup()
     yield deployer
 
 
+@pytest.fixture(scope="module")
+def iam_juju(lxd_controller: str | None) -> jubilant.Juju:
+    """Juju client for the identity platform model, on the k8s cloud."""
+    model = f"{lxd_controller}:{IAM_MODEL}" if lxd_controller else IAM_MODEL
+    return jubilant.Juju(model=model)
+
+
 async def _cross_model_integrate(
-    ops_test: OpsTest, offer_url: str, endpoint: str, saas_alias: str, offering_controller: str
+    ops_test: OpsTest, offer_url: str, endpoint: str, saas_alias: str
 ) -> None:
-    """Consume a cross-controller offer and integrate it into the test model."""
+    """Consume a cross-model offer and integrate it into the test model."""
     model = ops_test.model_full_name
-    qualified = offer_url if ":" in offer_url else f"{offering_controller}:{offer_url}"
-    await ops_test.run("juju", "consume", "-m", model, qualified, saas_alias, check=True)
+    await ops_test.run("juju", "consume", "-m", model, offer_url, saas_alias, check=True)
     await ops_test.run("juju", "integrate", "-m", model, endpoint, saas_alias, check=True)
 
 
@@ -83,6 +88,7 @@ async def test_build_and_deploy(
     ui_charm,
     ext_idp_service: DexIdpService,
     iam_deployer: TerraformDeployer,
+    iam_juju: jubilant.Juju,
 ):
     tfvars = iam_deployer.create_tfvars(
         {
@@ -96,7 +102,6 @@ async def test_build_and_deploy(
     iam_deployer.apply(tfvars)
     outputs = iam_deployer.output()
 
-    iam_juju = jubilant.Juju(model=f"{OFFERING_CONTROLLER}:{IAM_MODEL}")
     iam_juju.wait(
         lambda status: all_active_idle(status, *IAM_APPS),
         delay=10,
@@ -154,14 +159,10 @@ async def test_build_and_deploy(
     )
 
     await _cross_model_integrate(
-        ops_test, outputs["oauth_offer_url"], f"{APP_NAME}:oauth", "hydra", OFFERING_CONTROLLER
+        ops_test, outputs["oauth_offer_url"], f"{APP_NAME}:oauth", "hydra"
     )
     await _cross_model_integrate(
-        ops_test,
-        outputs["oauth_ca_offer_url"],
-        f"{APP_NAME}:oauth-ca",
-        "oauth-ca",
-        OFFERING_CONTROLLER,
+        ops_test, outputs["oauth_ca_offer_url"], f"{APP_NAME}:oauth-ca", "oauth-ca"
     )
 
     # ensuring update-status fires

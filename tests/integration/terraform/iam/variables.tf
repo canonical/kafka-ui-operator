@@ -20,6 +20,12 @@ variable "idp_provider_id" {
   default     = "Dex"
 }
 
+variable "k8s_cloud_name" {
+  description = "Name of the Kubernetes cloud registered on the Juju controller."
+  type        = string
+  default     = "uk8s"
+}
+
 variable "core_model_name" {
   description = "Name of the Juju model hosting the IAM dependencies (postgresql, traefik, certificates)."
   type        = string

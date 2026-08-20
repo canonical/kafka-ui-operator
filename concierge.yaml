@@ -9,19 +9,6 @@ providers:
     bootstrap: true
     channel: latest/stable
 
-  k8s:
-    enable: true
-    bootstrap: true
-    channel: 1.32-classic/stable
-    features:
-      local-storage:
-      load-balancer:
-        enabled: true
-        l2-mode: true
-        cidrs: "10.43.45.0/28"
-    bootstrap-constraints:
-      root-disk: 2G
-
 host:
   snaps:
     charmcraft:

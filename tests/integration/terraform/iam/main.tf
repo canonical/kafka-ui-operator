@@ -1,5 +1,9 @@
 resource "juju_model" "core" {
   name = var.core_model_name
+
+  cloud {
+    name = var.k8s_cloud_name
+  }
 }
 
 resource "juju_application" "certificates" {
@@ -52,6 +56,10 @@ resource "juju_application" "postgresql" {
 
 resource "juju_model" "iam" {
   name = var.iam_model_name
+
+  cloud {
+    name = var.k8s_cloud_name
+  }
 }
 
 module "iam" {

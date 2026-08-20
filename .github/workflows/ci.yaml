@@ -61,10 +61,62 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+      - name: Prepare host networking for k8s
+        if: matrix.tox-environments == 'integration-oauth'
+        run: |
+          # Docker's FORWARD chain conflicts with the k8s CNI and drops traffic
+          # between the LXD bridge and the cluster network.
+          sudo apt-get purge -y docker.io containerd 2>/dev/null || true
+          sudo apt-get autoremove -y 2>/dev/null || true
+          for chain in DOCKER DOCKER-ISOLATION-STAGE-1 DOCKER-ISOLATION-STAGE-2 DOCKER-USER DOCKER-FORWARD; do
+            sudo iptables -D FORWARD -j $chain 2>/dev/null || true
+            sudo iptables -F $chain 2>/dev/null || true
+            sudo iptables -X $chain 2>/dev/null || true
+            sudo iptables -t nat -F $chain 2>/dev/null || true
+            sudo iptables -t nat -X $chain 2>/dev/null || true
+          done
+          sudo iptables -P FORWARD ACCEPT
       - name: Setup operator environment
         run: |
           sudo snap install concierge --classic
-          sudo concierge prepare --trace --extra-debs pipx
+          if [ "${{ matrix.tox-environments }}" == "integration-oauth" ]
+          then
+            # Bootstraps the controller on LXD only; the k8s cluster is added to
+            # that same controller by the next step.
+            sudo concierge prepare --trace --extra-debs pipx -c concierge-k8s.yaml
+          else
+            sudo concierge prepare --trace --extra-debs pipx
+          fi
+      - name: Add the k8s cloud to the LXD controller
+        if: matrix.tox-environments == 'integration-oauth'
+        run: |
+          # `k8s status --wait-ready` returns as soon as one node is ready, but the
+          # CNI, DNS and storage may still be initialising, and `add-k8s` needs the
+          # default storage class to exist.
+          for res in deployment/cilium-operator deployment/coredns deployment/metrics-server \
+                     daemonset/cilium daemonset/ck-storage-rawfile-csi-node \
+                     statefulset/ck-storage-rawfile-csi-controller
+          do
+            if sudo k8s kubectl -n kube-system get "$res" >/dev/null 2>&1
+            then
+              sudo k8s kubectl -n kube-system rollout status "$res" --timeout=5m
+            fi
+          done
+
+          # The kubeconfig written by concierge points at 127.0.0.1, which is
+          # meaningless inside an LXD container. Both the Juju controller and the
+          # machine units need to reach the k8s API -- the latter to read the OAuth
+          # client secret out of the identity platform's k8s secret backend -- so
+          # register the cloud with the host's routable address instead.
+          mkdir -p ~/.kube
+          sudo k8s kubectl config view --raw > ~/.kube/config
+          PUBLIC_IP="$(ip -4 -j route get 2.2.2.2 | jq -r '.[] | .prefsrc')"
+          sed -i "s/127.0.0.1/${PUBLIC_IP}/g" ~/.kube/config
+
+          CONTROLLER="$(juju controllers --format json \
+            | jq -r '.controllers | to_entries[] | select(.value.cloud == "localhost") | .key')"
+          juju add-k8s uk8s --client --controller "$CONTROLLER" < ~/.kube/config
+          juju clouds --controller "$CONTROLLER"
       - name: Install dependencies
         run: |
           pipx install tox
