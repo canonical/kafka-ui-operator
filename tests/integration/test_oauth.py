@@ -39,15 +39,11 @@ pytest_plugins = ["oauth_tools.fixtures"]
 
 logger = logging.getLogger(__name__)
 
+# OAuth login requires TLS, and the identity platform requires the k8s cloud that only the
+# TLS job sets up. `pytest_collection_modifyitems` turns this into a skip without `--tls`.
+pytestmark = pytest.mark.tls_only
 
 DEX_PROVIDER_ID = "Dex"
-
-
-@pytest.fixture(scope="module", autouse=True)
-def _require_tls(request: pytest.FixtureRequest):
-    """Skip the whole module unless TLS is enabled."""
-    if not request.config.getoption("--tls"):
-        pytest.skip("OAuth login requires TLS; run with --tls")
 
 
 @pytest.fixture(scope="module")

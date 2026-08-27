@@ -21,6 +21,23 @@ def pytest_addoption(parser):
     )
 
 
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Skip `tls_only` tests when `--tls` is not passed.
+
+    The guard has to happen at collection time, not in a fixture: `oauth_tools` provides
+    a session-scoped `client` fixture that reads `~/.kube/config` -- only present when the
+    k8s cloud was set up -- and session-scoped fixtures are set up before any module-scoped
+    skip could fire.
+    """
+    if config.getoption("--tls"):
+        return
+
+    skip_tls = pytest.mark.skip(reason="requires TLS; run with --tls")
+    for item in items:
+        if "tls_only" in item.keywords:
+            item.add_marker(skip_tls)
+
+
 @pytest.fixture(scope="session")
 def lxd_controller() -> str | None:
     """Resolve the LXD controller."""
