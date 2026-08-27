@@ -4,6 +4,12 @@ resource "juju_model" "core" {
   cloud {
     name = var.k8s_cloud_name
   }
+
+  # `juju add-k8s <name>` stores the credential under the cloud's own name
+  # (cmd/juju/caas/add.go: `credentialName := c.caasName`). Without this the
+  # terraform provider sends an empty credential tag and the controller opens
+  # the k8s client with no authentication at all.
+  credential = var.k8s_cloud_name
 }
 
 resource "juju_application" "certificates" {
@@ -60,6 +66,12 @@ resource "juju_model" "iam" {
   cloud {
     name = var.k8s_cloud_name
   }
+
+  # `juju add-k8s <name>` stores the credential under the cloud's own name
+  # (cmd/juju/caas/add.go: `credentialName := c.caasName`). Without this the
+  # terraform provider sends an empty credential tag and the controller opens
+  # the k8s client with no authentication at all.
+  credential = var.k8s_cloud_name
 }
 
 module "iam" {

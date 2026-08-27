@@ -62,7 +62,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
       - name: Prepare host networking for k8s
-        if: matrix.tox-environments == 'integration-oauth'
+        if: matrix.tox-environments == 'integration-oauth' && matrix.tls == '--tls'
         run: |
           # Docker's FORWARD chain conflicts with the k8s CNI and drops traffic
           # between the LXD bridge and the cluster network.
@@ -79,7 +79,7 @@ jobs:
       - name: Setup operator environment
         run: |
           sudo snap install concierge --classic
-          if [ "${{ matrix.tox-environments }}" == "integration-oauth" ]
+          if [ "${{ matrix.tox-environments }}" == "integration-oauth" ] && [ "${{ matrix.tls }}" == "--tls" ]
           then
             # Bootstraps the controller on LXD only; the k8s cluster is added to
             # that same controller by the next step.
@@ -88,7 +88,7 @@ jobs:
             sudo concierge prepare --trace --extra-debs pipx
           fi
       - name: Add the k8s cloud to the LXD controller
-        if: matrix.tox-environments == 'integration-oauth'
+        if: matrix.tox-environments == 'integration-oauth' && matrix.tls == '--tls'
         run: |
           # `k8s status --wait-ready` returns as soon as one node is ready, but the
           # CNI, DNS and storage may still be initialising, and `add-k8s` needs the
@@ -100,6 +100,8 @@ jobs:
             if sudo k8s kubectl -n kube-system get "$res" >/dev/null 2>&1
             then
               sudo k8s kubectl -n kube-system rollout status "$res" --timeout=5m
+            else
+              echo "Skipping rollout status for missing $res"
             fi
           done
 
@@ -110,13 +112,26 @@ jobs:
           # register the cloud with the host's routable address instead.
           mkdir -p ~/.kube
           sudo k8s kubectl config view --raw > ~/.kube/config
-          PUBLIC_IP="$(ip -4 -j route get 2.2.2.2 | jq -r '.[] | .prefsrc')"
+          PUBLIC_IP="$(ip -4 -j route get 2.2.2.2 | jq -r '.[0].prefsrc // empty')"
+          if [ -z "$PUBLIC_IP" ]
+          then
+            echo "Could not determine the host's routable address" >&2
+            exit 1
+          fi
           sed -i "s/127.0.0.1/${PUBLIC_IP}/g" ~/.kube/config
 
           CONTROLLER="$(juju controllers --format json \
-            | jq -r '.controllers | to_entries[] | select(.value.cloud == "localhost") | .key')"
+            | jq -r '.controllers // {} | to_entries[] | select(.value.cloud == "localhost") | .key')"
+          if [ -z "$CONTROLLER" ]
+          then
+            echo "No controller found on the localhost cloud" >&2
+            exit 1
+          fi
           juju add-k8s uk8s --client --controller "$CONTROLLER" < ~/.kube/config
           juju clouds --controller "$CONTROLLER"
+          # Names and auth types only; never pass --show-secrets in CI.
+          juju credentials --controller "$CONTROLLER" || true
+
       - name: Install dependencies
         run: |
           pipx install tox
