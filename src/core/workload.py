@@ -12,11 +12,11 @@ from typing import BinaryIO, Iterable
 from charmlibs import pathops
 from ops.pebble import Layer
 
-from literals import CONFIG_DIR
+from literals import CONFIG_DIR, SNAP_NAME
 
 
 class Paths:
-    """Object to store common paths for Kafka Connect worker."""
+    """Object to store common paths for Kafka UI unit."""
 
     def __init__(self, config_dir: str = CONFIG_DIR):
         self.config_dir = CONFIG_DIR
@@ -41,12 +41,27 @@ class Paths:
         """Path to Java Truststore containing trusted CAs + certificates."""
         return f"{self.config_dir}/truststore.jks"
 
+    @property
+    def java_cacerts(self) -> str:
+        """Path to the JDK default truststore (public CA roots) shipped in the snap."""
+        return f"/snap/{SNAP_NAME}/current/etc/ssl/certs/java/cacerts"
+
+    @property
+    def java_truststore(self) -> str:
+        """Path to the writable combined truststore (public CAs + relation CAs).
+
+        Copied from `java_cacerts` and augmented with the relation CA(s) so the JVM
+        default truststore trusts the internal issuer without dropping public roots.
+        """
+        return f"{self.config_dir}/cacerts"
+
 
 class WorkloadBase(ABC):
     """Base interface for common workload operations."""
 
     paths: Paths = Paths()
     root: pathops.PathProtocol
+    java_truststore_password: str = ""
 
     @abstractmethod
     def start(self) -> None:

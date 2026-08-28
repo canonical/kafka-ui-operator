@@ -4,12 +4,16 @@
 
 """Manager for handling Kafka UI app configuration."""
 
+import logging
+
 import yaml
 
 from core.models import Context
 from core.structured_config import CharmConfig
 from core.workload import WorkloadBase
-from literals import SUBSTRATE
+from literals import CLUSTER_NAME, RBAC_SUBJECT_PROVIDER, ROLE_PERMISSIONS, SUBSTRATE
+
+logger = logging.getLogger(__name__)
 
 
 class ConfigManager:
@@ -34,11 +38,16 @@ class ConfigManager:
     @property
     def java_opts(self) -> list[str]:
         """Return JAVA_OPTS environment variable setting."""
-        return ["JAVA_OPTS='-Xms1G -Xmx1G -XX:+UseG1GC'"]
+        return [
+            "JAVA_OPTS='-Xms1G -Xmx1G -XX:+UseG1GC "
+            f"-Djavax.net.ssl.trustStore={self.workload.paths.java_truststore} "
+            "-Djavax.net.ssl.trustStoreType=JKS "
+            f"-Djavax.net.ssl.trustStorePassword={self.workload.java_truststore_password}'"
+        ]
 
     @property
-    def spring_boot_tls_config(self) -> dict:
-        """Return TLS config for Spring Boot application."""
+    def spring_ssl_config(self) -> dict:
+        """Return Spring Boot `ssl` bundle config for TLS."""
         if not self.context.unit.tls.ready or SUBSTRATE == "k8s":
             return {}
 
@@ -59,20 +68,89 @@ class ConfigManager:
         }
 
     @property
-    def basic_auth_and_tls_config(self) -> dict:
-        """Return basic auth & TLS config for the Spring Boot application."""
+    def spring_security_config(self) -> dict:
+        """Return Spring Boot `security` config (basic-auth credentials)."""
+        if self.context.oauth_relation:
+            return {}
+
         return {
-            "auth": {"type": "LOGIN_FORM"},
-            "spring": {
-                "security": {
-                    "user": {
-                        "name": self.context.app.ADMIN_USERNAME,
-                        "password": self.context.app.admin_password,
-                    }
+            "security": {
+                "user": {
+                    "name": self.context.app.ADMIN_USERNAME,
+                    "password": self.context.app.admin_password,
                 }
             }
-            | self.spring_boot_tls_config,
         }
+
+    @property
+    def spring_config(self) -> dict:
+        """Return combined Spring Boot `spring` config."""
+        _config = self.spring_security_config | self.spring_ssl_config
+
+        return {"spring": _config} if _config else {}
+
+    @property
+    def basic_auth(self) -> dict:
+        """Return basic auth config for the Spring Boot application."""
+        return {"auth": {"type": "LOGIN_FORM"}}
+
+    @property
+    def oauth_config(self) -> dict:
+        """Return OAuth config for the Spring Boot application."""
+        if not self.context.oauth_relation:
+            return {}
+
+        return {
+            "auth": {
+                "type": "OAUTH2",
+                "oauth2": {
+                    "client": {
+                        "iam": {
+                            "clientId": self.context.oauth_client.client_id,
+                            "clientSecret": self.context.oauth_client.client_secret,
+                            "scope": ["openid", "email"],
+                            "client-name": "iam",
+                            "provider": "iam",
+                            "redirect-uri": f"{self.context.ingress_url}/login/oauth2/code/iam",
+                            "authorization-grant-type": "authorization_code",
+                            "issuer-uri": self.context.oauth_client.issuer_url,
+                            "user-name-attribute": self.config.username_attribute,
+                            "custom-params": {"type": RBAC_SUBJECT_PROVIDER},
+                        }
+                    }
+                },
+            }
+        }
+
+    @property
+    def rbac_config(self) -> dict:
+        """Return the Kafka UI RBAC config built from roles-mapping."""
+        mapping = self.config.roles_mapping or {}
+        if not self.context.oauth_relation or not mapping:
+            return {}
+
+        roles = []
+        for role, permissions in ROLE_PERMISSIONS.items():
+            subjects = [
+                {"provider": RBAC_SUBJECT_PROVIDER, "type": "user", "value": user}
+                for user, mapped_role in mapping.items()
+                if mapped_role == role
+            ]
+            if subjects:
+                roles.append(
+                    {
+                        "name": role,
+                        "clusters": [CLUSTER_NAME],
+                        "subjects": subjects,
+                        "permissions": permissions,
+                    }
+                )
+        return {"rbac": {"roles": roles}} if roles else {}
+
+    @property
+    def auth_config(self) -> dict:
+        """Return auth config for the Spring Boot application."""
+        return self.oauth_config if self.context.oauth_relation else self.basic_auth
 
     @property
     def webclient_config(self) -> dict:
@@ -147,7 +225,7 @@ class ConfigManager:
             "kafka": {
                 "clusters": [
                     {
-                        "name": "kafka",
+                        "name": CLUSTER_NAME,
                         "bootstrap-servers": self.context.kafka_client.bootstrap_servers,
                         **self.cluster_tls_properties,
                         "properties": self.kafka_client_properties_config,
@@ -156,7 +234,7 @@ class ConfigManager:
                         or None,
                         "schema-registry-auth": self.schema_registry_auth_config,
                         "metrics": {"type": "PROMETHEUS", "port": 9101},
-                        "read-only": True,
+                        "read-only": not self.context.oauth_relation,
                         "polling-throttle-rate": 30,
                         "consumer-properties": {"max.partition.fetch.bytes": 104857600},
                     }
@@ -190,13 +268,17 @@ class ConfigManager:
     @property
     def application_local_config(self) -> dict:
         """Return the final application configuration object."""
-        return (
+        config = (
             self.kafka_cluster_config
+            | self.auth_config
+            | self.rbac_config
             | self.monitoring_config
-            | self.basic_auth_and_tls_config
             | self.webclient_config
             | self.server_config
+            | self.spring_config
         )
+
+        return config
 
     @property
     def clean_yaml_config(self) -> str:

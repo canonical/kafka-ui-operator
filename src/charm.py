@@ -19,6 +19,7 @@ from tenacity import retry, retry_if_exception, stop_after_attempt, wait_fixed
 
 from core.models import Context
 from core.structured_config import CharmConfig
+from events.oauth import OAuthHandler
 from events.tls import TLSHandler
 from events.user_secrets import SecretsHandler
 from literals import KAFKA_CONNECT_REL, KAFKA_REL, KARAPACE_REL, SUBSTRATE, DebugLevel, Status
@@ -39,6 +40,7 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
 
         self.workload = Workload()
         self.context = Context(self)
+        self.workload.java_truststore_password = self.context.app.oauth_truststore_password
         self.pending_inactive_statuses: list[Status] = []
 
         # Managers
@@ -57,6 +59,7 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
         self.karapace_events = KarapaceRequirerEventHandlers(
             self, self.context.karapace_client_interface
         )
+        self.oauth = OAuthHandler(self)
         self.tls = TLSHandler(self)
         self.user_secrets = SecretsHandler(self)
 
@@ -83,12 +86,16 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
             event.defer()
             return
 
-        self.tls.init_unit_tls()
+        self.init_app_passwords()
 
-        if not self.context.app.admin_password:
-            self.context.app.update(
-                {self.context.app.ADMIN_PASSWORD: self.workload.generate_password()}
-            )
+        if not self.workload.java_truststore_password:
+            logger.debug("App passwords not created by the leader yet, deferring")
+            event.defer()
+            return
+
+        self.tls.init_unit_tls()
+        self.oauth.reconcile_ca_truststore()
+        self.oauth.reconcile_client_config()
 
         config_changed = self.config_manager.config_changed()
         truststore_changed = self.tls_manager.truststore_changed()
@@ -106,6 +113,19 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
         )
 
         self.workload.restart()
+
+    def init_app_passwords(self) -> None:
+        """Create the app-wide passwords on first deployment."""
+        if not self.unit.is_leader():
+            return
+
+        if not self.context.app.admin_password:
+            self.context.app.admin_password = self.workload.generate_password()
+
+        if not self.context.app.oauth_truststore_password:
+            self.context.app.oauth_truststore_password = self.workload.generate_password()
+
+        self.workload.java_truststore_password = self.context.app.oauth_truststore_password
 
     def _on_update_status(self, _) -> None:
         """Handle `update-status` event."""

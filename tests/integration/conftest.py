@@ -2,6 +2,7 @@
 # Copyright 2022 Canonical Ltd.
 # See LICENSE file for licensing details.
 
+import json
 import os
 import pathlib
 import subprocess
@@ -14,21 +15,60 @@ import pytest
 def pytest_addoption(parser):
     """Define pytest parsers."""
     parser.addoption(
-        "--model",
-        action="store",
-        help="Juju model to use; if not provided, a new model "
-        "will be created for each test which requires one",
-    )
-    parser.addoption(
-        "--keep-models",
-        action="store_true",
-        help="Keep models handled by opstest, can be overridden in track_model",
-    )
-    parser.addoption(
         "--tls",
         action="store_true",
         help="Whether to use TLS on tests or not",
     )
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Skip `tls_only` tests when `--tls` is not passed.
+
+    The guard has to happen at collection time, not in a fixture: `oauth_tools` provides
+    a session-scoped `client` fixture that reads `~/.kube/config` -- only present when the
+    k8s cloud was set up -- and session-scoped fixtures are set up before any module-scoped
+    skip could fire.
+    """
+    if config.getoption("--tls"):
+        return
+
+    skip_tls = pytest.mark.skip(reason="requires TLS; run with --tls")
+    for item in items:
+        if "tls_only" in item.keywords:
+            item.add_marker(skip_tls)
+
+
+@pytest.fixture(scope="session")
+def lxd_controller() -> str | None:
+    """Resolve the LXD controller."""
+    controllers = (
+        json.loads(
+            subprocess.run(
+                ["juju", "controllers", "--format", "json"],
+                capture_output=True,
+                check=True,
+                text=True,
+            ).stdout
+        ).get("controllers")
+        or {}
+    )
+
+    for name, info in controllers.items():
+        if info.get("cloud") == "localhost":
+            return name
+    return None
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _pin_lxd_controller(request: pytest.FixtureRequest, lxd_controller: str | None) -> None:
+    """Pin `ops_test` (pytest-operator) to the LXD controller and its machine cloud.
+
+    The controller also hosts the k8s cloud that the identity platform is deployed
+    to, so the cloud is set explicitly to keep the charm under test on machines.
+    """
+    if lxd_controller is not None:
+        request.config.option.controller = lxd_controller
+    request.config.option.cloud = "localhost"
 
 
 @pytest.fixture
@@ -68,12 +108,12 @@ def tls_enabled(request: pytest.FixtureRequest) -> bool:
 
 
 @pytest.fixture(scope="module")
-def juju(request: pytest.FixtureRequest):
+def juju(request: pytest.FixtureRequest, lxd_controller: str | None):
     model = request.config.getoption("--model")
     keep_models = typing.cast(bool, request.config.getoption("--keep-models"))
 
     if model is None:
-        with jubilant.temp_model(keep=keep_models) as juju:
+        with jubilant.temp_model(keep=keep_models, controller=lxd_controller) as juju:
             juju.wait_timeout = 10 * 60
             juju.model_config({"update-status-hook-interval": "90s"})
             yield juju

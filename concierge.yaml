@@ -1,0 +1,15 @@
+juju:
+  channel: 3.6/stable
+  model-defaults:
+    logging-config: <root>=INFO; unit=DEBUG
+
+providers:
+  lxd:
+    enable: true
+    bootstrap: true
+    channel: latest/stable
+
+host:
+  snaps:
+    charmcraft:
+      channel: 3.x/stable
