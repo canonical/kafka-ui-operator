@@ -48,7 +48,7 @@ class ConfigManager:
     @property
     def spring_ssl_config(self) -> dict:
         """Return Spring Boot `ssl` bundle config for TLS."""
-        if not self.context.unit.tls.ready or SUBSTRATE == "k8s":
+        if self.context.tls_termination == "ingress" or not self.context.unit.tls.ready:
             return {}
 
         return {
@@ -245,11 +245,10 @@ class ConfigManager:
     @property
     def server_tls_config(self) -> dict:
         """Return TLS (HTTPS) config for the Kafka UI webserver."""
-        return (
-            {"ssl": {"bundle": "server"}}
-            if self.context.unit.tls.ready and SUBSTRATE == "vm"
-            else {}
-        )
+        if self.context.tls_termination == "ingress":
+            return {}
+
+        return {"ssl": {"bundle": "server"}} if self.context.unit.tls.ready else {}
 
     @property
     def context_path_config(self) -> dict:
@@ -261,9 +260,41 @@ class ConfigManager:
     @property
     def server_config(self):
         """Return Spring Boot `server` config."""
-        _config = self.server_tls_config | self.context_path_config
+        servlet_config = {}
+        if self.context.ingress_relation:
+            servlet_config = {
+                "servlet": {
+                    "session": {
+                        "cookie": {
+                            "http-only": True,
+                            "secure": True,
+                            "same-site": "lax",
+                            "domain": self.context.ingress_url,
+                        }
+                    }
+                }
+            }
+
+        _config = (
+            {"forward-headers-strategy": "FRAMEWORK"}
+            | servlet_config
+            | self.server_tls_config
+            | self.context_path_config
+        )
 
         return {"server": _config} if _config else {}
+
+    @property
+    def logging_config(self) -> dict:
+        """Return the logging config for the spring boot app."""
+        return {
+            "logging": {
+                "level": {
+                    "root": "INFO",
+                    "io.kafbat.ui": "DEBUG",
+                }
+            }
+        }
 
     @property
     def application_local_config(self) -> dict:
@@ -276,8 +307,8 @@ class ConfigManager:
             | self.webclient_config
             | self.server_config
             | self.spring_config
+            | self.logging_config
         )
-
         return config
 
     @property
