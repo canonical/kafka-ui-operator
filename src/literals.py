@@ -30,6 +30,7 @@ KARAPACE_REL = "karapace-client"
 TLS_REL = "certificates"
 OAUTH_REL = "oauth"
 OAUTH_CA_REL = "oauth-ca"
+INGRESS_REL = "ingress"
 
 OAUTH_CA_ALIAS_PREFIX = "oauth-ca-"
 JAVA_CACERTS_DEFAULT_PASSWORD = "changeit"
@@ -142,6 +143,10 @@ class Status(Enum):
     MISSING_KAFKA = StatusLevel(BlockedStatus("application needs Kafka client relation"), "DEBUG")
     NO_KAFKA_CREDENTIALS = StatusLevel(
         WaitingStatus("waiting for Kafka cluster credentials"), "DEBUG"
+    )
+    MISSING_INGRESS_HA = StatusLevel(
+        BlockedStatus("application needs an ingress relation when multiple units are deployed."),
+        "WARNING",
     )
     SERVICE_NOT_RUNNING = StatusLevel(BlockedStatus("service is not running"), "WARNING")
     SERVICE_STARTING = StatusLevel(WaitingStatus("service is still starting up"), "INFO")

@@ -20,10 +20,11 @@ from charms.data_platform_libs.v0.data_interfaces import (
 )
 from ops import Object
 from ops.model import Application, Relation, RelationDataAccessError, Unit
-from typing_extensions import TYPE_CHECKING, override
+from typing_extensions import TYPE_CHECKING, Literal, override
 
 from literals import (
     DEFAULT_SECURITY_MECHANISM,
+    INGRESS_REL,
     KAFKA_CONNECT_REL,
     KAFKA_REL,
     KARAPACE_REL,
@@ -379,6 +380,18 @@ class OAuthData(Data):
     subclass.
     """
 
+    def __init__(self, model, relation: Relation | None) -> None:
+        if not relation:
+            return
+
+        super().__init__(model, relation.name)
+        self.component = relation.app
+
+    @override
+    def fetch_my_relation_data(self, *args, **kwargs):
+        # Never used, this is requirer data; if omitted, as_dict() fails on non-leaders.
+        return {}
+
     # NOTE: These fields should always be empty. Secrets are fetched using the actual
     # oauth library methods instead.
     SECRET_FIELDS: list[str] = []
@@ -567,7 +580,7 @@ class Context(WithStatus, Object):
         self.karapace_client_interface = KarapaceRequirerData(
             self.model, relation_name=KARAPACE_REL, subject="__kafka-ui", extra_user_roles="admin"
         )
-        self.oauth_client_interface = OAuthData(self.model, relation_name=OAUTH_REL)
+        self.oauth_client_interface = OAuthData(self.model, relation=self.oauth_relation)
 
     @property
     def unit(self) -> UnitContext:
@@ -596,6 +609,11 @@ class Context(WithStatus, Object):
     def oauth_relation(self) -> Relation | None:
         """The Kafka UI oauth relation."""
         return self.model.get_relation(OAUTH_REL)
+
+    @property
+    def ingress_relation(self) -> Relation | None:
+        """The ingress relation."""
+        return self.model.get_relation(INGRESS_REL)
 
     @property
     def kafka_client(self) -> KafkaClientContext:
@@ -648,12 +666,31 @@ class Context(WithStatus, Object):
     @property
     def ingress_url(self) -> str:
         """Returns the ingress URL if available, otherwise the endpoint."""
+        if self.ingress_relation:
+            ingress_url = self.charm.ingress.url or ""
+            return ingress_url.rstrip("/")
+
         return self.endpoint
+
+    @property
+    def tls_termination(self) -> Literal["charm", "ingress"]:
+        """Return whether TLS termination should be done in the charm or in the ingress.
+
+        In case of VM, where no ingress relation is active, we use either self-signed certs
+        or a TLS relation to do the TLS termination, otherwise we use ingress.
+        """
+        if SUBSTRATE == "k8s" or self.ingress_relation:
+            return "ingress"
+
+        return "charm"
 
     @property
     @override
     def status(self) -> Status:
         if not self.kafka_client.ready:
             return self.kafka_client.status
+
+        if self.peer_relation and len(self.peer_relation.units) > 0 and not self.ingress_relation:
+            return Status.MISSING_INGRESS_HA
 
         return Status.ACTIVE

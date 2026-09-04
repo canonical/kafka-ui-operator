@@ -14,6 +14,7 @@ from charms.data_platform_libs.v0.data_interfaces import (
     KarapaceRequirerEventHandlers,
 )
 from charms.data_platform_libs.v0.data_models import TypedCharmBase
+from charms.traefik_k8s.v2.ingress import IngressPerAppRequirer
 from ops import CollectStatusEvent
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_fixed
 
@@ -22,7 +23,15 @@ from core.structured_config import CharmConfig
 from events.oauth import OAuthHandler
 from events.tls import TLSHandler
 from events.user_secrets import SecretsHandler
-from literals import KAFKA_CONNECT_REL, KAFKA_REL, KARAPACE_REL, SUBSTRATE, DebugLevel, Status
+from literals import (
+    KAFKA_CONNECT_REL,
+    KAFKA_REL,
+    KARAPACE_REL,
+    PORT,
+    SUBSTRATE,
+    DebugLevel,
+    Status,
+)
 from managers.config import ConfigManager
 from managers.tls import TLSManager
 from workload import Workload
@@ -52,6 +61,7 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
         )
 
         # Handlers
+        self.ingress = IngressPerAppRequirer(self, port=PORT, scheme="http")
         self.kafka_events = KafkaRequirerEventHandlers(self, self.context.kafka_client_interface)
         self.connect_events = KafkaConnectRequirerEventHandlers(
             self, self.context.connect_client_interface
@@ -166,8 +176,8 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
             self._set_status(Status.INSTALLING)
             return False
 
-        if not self.context.kafka_client.ready:
-            self._set_status(Status.MISSING_KAFKA)
+        if self.context.status != Status.ACTIVE:
+            self._set_status(self.context.status)
             return False
 
         if not self.workload.active():

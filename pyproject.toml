@@ -58,7 +58,7 @@ pytest-operator = "^0.43.0"
 pytest-asyncio = "^0.21.2"
 pytest-playwright = "^0.7.0"
 oauth_tools = { git = "https://github.com/canonical/iam-bundle", tag = "oauth_tools-v0.1.2" }
-
+tenacity = "^9.1.4"
 
 # Testing tools configuration
 [tool.coverage.run]

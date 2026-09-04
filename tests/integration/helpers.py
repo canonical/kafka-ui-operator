@@ -37,6 +37,9 @@ IAM_TERRAFORM_DIR = "tests/integration/terraform/iam"
 IAM_MODEL = "iam"
 CORE_MODEL = "core"
 HYDRA_APP = "hydra"
+HAPROXY_APP = "haproxy"
+INGRESS_CONFIGURATOR_APP = "ingress-configurator"
+TEST_HOSTNAME = "kui.loc"
 KRATOS_EXTERNAL_IDP_INTEGRATOR_APP = "kratos-external-idp-integrator"
 IAM_APPS = ("hydra", "kratos", "login-ui", KRATOS_EXTERNAL_IDP_INTEGRATOR_APP)
 
@@ -52,6 +55,29 @@ SECRET_KEY = "admin-password"
 def all_active_idle(status: jubilant.Status, *apps: str):
     """Check all units are in active|idle state."""
     return jubilant.all_agents_idle(status, *apps) and jubilant.all_active(status, *apps)
+
+
+def deploy_ha_apps(juju: jubilant.Juju, tls_deployed: bool = False) -> None:
+    """Deploy and activate the HAProxy & Ingress Configurator apps."""
+    tls_app = TLS_APP if tls_deployed else "haproxy-ssc"
+    if not tls_deployed:
+        juju.deploy(TLS_APP, app="haproxy-ssc", channel=TLS_CHANNEL)
+    juju.deploy(HAPROXY_APP, app=HAPROXY_APP, channel="2.8/edge", base="ubuntu@24.04")
+    juju.deploy(
+        INGRESS_CONFIGURATOR_APP,
+        app=INGRESS_CONFIGURATOR_APP,
+        config={
+            "hostname": TEST_HOSTNAME,
+            "load-balancing-consistent-hashing": True,
+            "load-balancing-algorithm": "source",
+            "health-check-rise": 3,
+            "health-check-port": PORT,
+            "health-check-fall": 1,
+            "health-check-interval": 30,
+        },
+    )
+    juju.integrate(f"{INGRESS_CONFIGURATOR_APP}:haproxy-route", f"{HAPROXY_APP}:haproxy-route")
+    juju.integrate(f"{HAPROXY_APP}:certificates", tls_app)
 
 
 def wait_for_ui_serving(url: str, timeout: int = 600, delay: int = 5) -> None:
