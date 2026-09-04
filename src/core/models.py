@@ -667,7 +667,8 @@ class Context(WithStatus, Object):
     def ingress_url(self) -> str:
         """Returns the ingress URL if available, otherwise the endpoint."""
         if self.ingress_relation:
-            return self.charm.ingress.url
+            ingress_url = self.charm.ingress.url or ""
+            return ingress_url.rstrip("/")
 
         return self.endpoint
 
