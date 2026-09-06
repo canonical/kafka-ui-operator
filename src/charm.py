@@ -14,6 +14,7 @@ from charms.data_platform_libs.v0.data_interfaces import (
     KarapaceRequirerEventHandlers,
 )
 from charms.data_platform_libs.v0.data_models import TypedCharmBase
+from charms.haproxy.v2.haproxy_route import HaproxyRouteRequirer
 from charms.traefik_k8s.v2.ingress import IngressPerAppRequirer
 from ops import CollectStatusEvent
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_fixed
@@ -62,6 +63,22 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
 
         # Handlers
         self.ingress = IngressPerAppRequirer(self, port=PORT, scheme="http")
+        self.haproxy_route_requirer = HaproxyRouteRequirer(
+            self,
+            relation_name="backend",
+            service="kafka-ui",
+            ports=[PORT],
+            protocol="http",
+            hosts=[self.context.internal_address],
+            hostname="ui.loc",
+            check_interval=30,
+            check_rise=3,
+            check_fall=1,
+            check_port=PORT,
+            load_balancing_consistent_hashing=True,
+            load_balancing_cookie="SESSION",
+        )
+
         self.kafka_events = KafkaRequirerEventHandlers(self, self.context.kafka_client_interface)
         self.connect_events = KafkaConnectRequirerEventHandlers(
             self, self.context.connect_client_interface
