@@ -12,12 +12,14 @@ from charms.data_platform_libs.v0.data_interfaces import (
     PLUGIN_URL_NOT_REQUIRED,
     Data,
     DataPeerData,
+    DataPeerOtherUnitData,
     DataPeerUnitData,
     KafkaConnectRequirerData,
     KafkaRequirerData,
     KarapaceRequirerData,
     RequirerData,
 )
+from charms.haproxy.v2.haproxy_route import LoadBalancingAlgorithm
 from ops import Object
 from ops.model import Application, Relation, RelationDataAccessError, Unit
 from typing_extensions import TYPE_CHECKING, Literal, override
@@ -583,6 +585,17 @@ class Context(WithStatus, Object):
         self.oauth_client_interface = OAuthData(self.model, relation=self.oauth_relation)
 
     @property
+    def peer_units_data_interfaces(self) -> dict[Unit, DataPeerOtherUnitData]:
+        """The data interface of peer units."""
+        if not self.peer_relation or not self.peer_relation.units:
+            return {}
+
+        return {
+            unit: DataPeerOtherUnitData(model=self.model, unit=unit, relation_name=PEER_REL)
+            for unit in self.peer_relation.units
+        }
+
+    @property
     def unit(self) -> UnitContext:
         """Returns context of the peer unit relation."""
         return UnitContext(
@@ -590,6 +603,22 @@ class Context(WithStatus, Object):
             self.peer_unit_interface,
             component=self.model.unit,
         )
+
+    @property
+    def units(self) -> set[UnitContext]:
+        """Return a set of all peer units."""
+        _units = set()
+        for unit, data_interface in self.peer_units_data_interfaces.items():
+            _units.add(
+                UnitContext(
+                    relation=self.peer_relation,
+                    data_interface=data_interface,
+                    component=unit,
+                )
+            )
+        _units.add(self.unit)
+
+        return _units
 
     @property
     def app(self) -> AppContext:
@@ -614,6 +643,11 @@ class Context(WithStatus, Object):
     def ingress_relation(self) -> Relation | None:
         """The ingress relation."""
         return self.model.get_relation(INGRESS_REL)
+
+    @property
+    def route_relation(self) -> Relation | None:
+        """The route relation."""
+        return self.model.get_relation("backend")
 
     @property
     def kafka_client(self) -> KafkaClientContext:
@@ -679,10 +713,28 @@ class Context(WithStatus, Object):
         In case of VM, where no ingress relation is active, we use either self-signed certs
         or a TLS relation to do the TLS termination, otherwise we use ingress.
         """
-        if SUBSTRATE == "k8s" or self.ingress_relation:
+        if SUBSTRATE == "k8s" or any([self.ingress_relation, self.route_relation]):
             return "ingress"
 
         return "charm"
+
+    @property
+    def route_config(self) -> dict:
+        """Return the route config."""
+        return {
+            "service": self.charm.app.name,
+            "ports": [PORT],
+            "protocol": "http",
+            "hosts": sorted([unit.internal_address for unit in self.units]),
+            "hostname": self.config.hostname,
+            "check_interval": 30,
+            "check_rise": 3,
+            "check_fall": 1,
+            "check_port": PORT,
+            "load_balancing_consistent_hashing": True,
+            "load_balancing_algorithm": LoadBalancingAlgorithm.COOKIE,
+            "load_balancing_cookie": "SESSION",  # Kafka UI's cookie name
+        }
 
     @property
     @override
@@ -690,7 +742,11 @@ class Context(WithStatus, Object):
         if not self.kafka_client.ready:
             return self.kafka_client.status
 
-        if self.peer_relation and len(self.peer_relation.units) > 0 and not self.ingress_relation:
+        if (
+            self.peer_relation
+            and len(self.peer_relation.units) > 0
+            and not any([self.ingress_relation, self.route_relation])
+        ):
             return Status.MISSING_INGRESS_HA
 
         return Status.ACTIVE

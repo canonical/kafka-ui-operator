@@ -21,3 +21,6 @@ options:
       Username attribute in the OAuth access token, ignored if not using OAuth.
     type: string
     default: email
+  hostname:
+    type: string
+    description: The hostname to route to the backend service.

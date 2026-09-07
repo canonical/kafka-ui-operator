@@ -4,6 +4,7 @@
 
 """Charm the application."""
 
+import json
 import logging
 
 import ops
@@ -29,6 +30,7 @@ from literals import (
     KAFKA_REL,
     KARAPACE_REL,
     PORT,
+    ROUTES_JSON,
     SUBSTRATE,
     DebugLevel,
     Status,
@@ -66,17 +68,7 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
         self.haproxy_route_requirer = HaproxyRouteRequirer(
             self,
             relation_name="backend",
-            service="kafka-ui",
-            ports=[PORT],
-            protocol="http",
-            hosts=[self.context.internal_address],
-            hostname="ui.loc",
-            check_interval=30,
-            check_rise=3,
-            check_fall=1,
-            check_port=PORT,
-            load_balancing_consistent_hashing=True,
-            load_balancing_cookie="SESSION",
+            **self.context.route_config,
         )
 
         self.kafka_events = KafkaRequirerEventHandlers(self, self.context.kafka_client_interface)
@@ -121,6 +113,7 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
             return
 
         self.tls.init_unit_tls()
+        self.reconcile_routes()
         self.oauth.reconcile_ca_truststore()
         self.oauth.reconcile_client_config()
 
@@ -208,6 +201,24 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
             return False
 
         return True
+
+    def reconcile_routes(self) -> None:
+        """Reconcile configured routes for the application."""
+        if not self.unit.is_leader():
+            return
+
+        if not self.context.route_relation:
+            return
+
+        route_config = self.context.route_config
+        configured_routes = "\n".join(self.workload.read(ROUTES_JSON)).strip()
+        current_routes = json.dumps(route_config)
+
+        if current_routes == configured_routes:
+            return
+
+        self.haproxy_route_requirer.provide_haproxy_route_requirements(**route_config)
+        self.workload.write(content=current_routes, path=ROUTES_JSON)
 
 
 if __name__ == "__main__":  # pragma: nocover

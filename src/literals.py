@@ -19,6 +19,7 @@ SERVICE_NAME = "daemon"
 USER_NAME = "_daemon_"
 GROUP = "root"
 CONFIG_DIR = f"/var/snap/{SNAP_NAME}/current/etc/kafka-ui"
+ROUTES_JSON = f"{CONFIG_DIR}/routes.json"
 SUBSTRATE = "vm"
 PORT = 8080
 
