@@ -31,7 +31,7 @@ KARAPACE_REL = "karapace-client"
 TLS_REL = "certificates"
 OAUTH_REL = "oauth"
 OAUTH_CA_REL = "oauth-ca"
-INGRESS_REL = "ingress"
+ROUTE_REL = "backend"
 
 OAUTH_CA_ALIAS_PREFIX = "oauth-ca-"
 JAVA_CACERTS_DEFAULT_PASSWORD = "changeit"

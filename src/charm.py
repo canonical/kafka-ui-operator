@@ -16,7 +16,6 @@ from charms.data_platform_libs.v0.data_interfaces import (
 )
 from charms.data_platform_libs.v0.data_models import TypedCharmBase
 from charms.haproxy.v2.haproxy_route import HaproxyRouteRequirer
-from charms.traefik_k8s.v2.ingress import IngressPerAppRequirer
 from ops import CollectStatusEvent
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_fixed
 
@@ -29,7 +28,7 @@ from literals import (
     KAFKA_CONNECT_REL,
     KAFKA_REL,
     KARAPACE_REL,
-    PORT,
+    ROUTE_REL,
     ROUTES_JSON,
     SUBSTRATE,
     DebugLevel,
@@ -64,10 +63,9 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
         )
 
         # Handlers
-        self.ingress = IngressPerAppRequirer(self, port=PORT, scheme="http")
         self.haproxy_route_requirer = HaproxyRouteRequirer(
             self,
-            relation_name="backend",
+            relation_name=ROUTE_REL,
             **self.context.route_config,
         )
 
@@ -212,7 +210,7 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
 
         route_config = self.context.route_config
         configured_routes = "\n".join(self.workload.read(ROUTES_JSON)).strip()
-        current_routes = json.dumps(route_config)
+        current_routes = json.dumps(route_config, default=str)
 
         if current_routes == configured_routes:
             return
