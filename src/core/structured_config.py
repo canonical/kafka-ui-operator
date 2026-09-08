@@ -22,6 +22,7 @@ class CharmConfig(BaseConfigModel):
     system_users: str | None = None
     roles_mapping: dict[str, str] | None = None
     username_attribute: Literal["sub", "email", "preferred_username", "name"]
+    hostname: str | None = None
 
     @validator("roles_mapping", pre=True)
     @classmethod

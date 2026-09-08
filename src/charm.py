@@ -4,6 +4,7 @@
 
 """Charm the application."""
 
+import json
 import logging
 
 import ops
@@ -14,7 +15,7 @@ from charms.data_platform_libs.v0.data_interfaces import (
     KarapaceRequirerEventHandlers,
 )
 from charms.data_platform_libs.v0.data_models import TypedCharmBase
-from charms.traefik_k8s.v2.ingress import IngressPerAppRequirer
+from charms.haproxy.v2.haproxy_route import HaproxyRouteRequirer
 from ops import CollectStatusEvent
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_fixed
 
@@ -27,7 +28,8 @@ from literals import (
     KAFKA_CONNECT_REL,
     KAFKA_REL,
     KARAPACE_REL,
-    PORT,
+    ROUTE_REL,
+    ROUTES_JSON,
     SUBSTRATE,
     DebugLevel,
     Status,
@@ -61,7 +63,12 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
         )
 
         # Handlers
-        self.ingress = IngressPerAppRequirer(self, port=PORT, scheme="http")
+        self.haproxy_route_requirer = HaproxyRouteRequirer(
+            self,
+            relation_name=ROUTE_REL,
+            **self.context.route_config,
+        )
+
         self.kafka_events = KafkaRequirerEventHandlers(self, self.context.kafka_client_interface)
         self.connect_events = KafkaConnectRequirerEventHandlers(
             self, self.context.connect_client_interface
@@ -104,6 +111,7 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
             return
 
         self.tls.init_unit_tls()
+        self.reconcile_routes()
         self.oauth.reconcile_ca_truststore()
         self.oauth.reconcile_client_config()
 
@@ -191,6 +199,24 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
             return False
 
         return True
+
+    def reconcile_routes(self) -> None:
+        """Reconcile configured routes for the application."""
+        if not self.unit.is_leader():
+            return
+
+        if not self.context.route_relation:
+            return
+
+        route_config = self.context.route_config
+        configured_routes = "\n".join(self.workload.read(ROUTES_JSON)).strip()
+        current_routes = json.dumps(route_config, default=str)
+
+        if current_routes == configured_routes:
+            return
+
+        self.haproxy_route_requirer.provide_haproxy_route_requirements(**route_config)
+        self.workload.write(content=current_routes, path=ROUTES_JSON)
 
 
 if __name__ == "__main__":  # pragma: nocover

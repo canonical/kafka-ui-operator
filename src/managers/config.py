@@ -261,7 +261,7 @@ class ConfigManager:
     def server_config(self):
         """Return Spring Boot `server` config."""
         servlet_config = {}
-        if self.context.ingress_relation:
+        if self.context.route_relation:
             servlet_config = {
                 "servlet": {
                     "session": {

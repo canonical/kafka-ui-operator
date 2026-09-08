@@ -12,7 +12,6 @@ import requests
 from helpers import (
     APP_NAME,
     HAPROXY_APP,
-    INGRESS_CONFIGURATOR_APP,
     KAFKA_APP,
     KAFKA_CHANNEL,
     SECRET_KEY,
@@ -45,13 +44,15 @@ def _assert_login_using_hostname(juju: jubilant.Juju):
         f"{url}/login",
         headers={
             "Content-Type": "application/x-www-form-urlencoded",
-            "Hostname": TEST_HOSTNAME,
+            "Host": TEST_HOSTNAME,
         },
         data={"username": "admin", "password": password},
         verify=False,
     )
 
     assert login_resp.status_code == 200
+    # Successful login would lead to a redirect
+    assert len(login_resp.history) > 0
 
 
 def test_deploy_ui_and_kafka_active(juju: jubilant.Juju, ui_charm: Path, tls_enabled: bool):
@@ -62,7 +63,7 @@ def test_deploy_ui_and_kafka_active(juju: jubilant.Juju, ui_charm: Path, tls_ena
         channel=KAFKA_CHANNEL,
         config={"roles": "broker,controller"},
     )
-    juju.deploy(ui_charm, app=APP_NAME, trust=True)
+    juju.deploy(ui_charm, app=APP_NAME, config={"hostname": TEST_HOSTNAME})
     juju.integrate(APP_NAME, KAFKA_APP)
 
     if tls_enabled:
@@ -96,10 +97,10 @@ def test_scale_with_no_ingress(juju: jubilant.Juju):
 
 def test_activate_ingress(juju: jubilant.Juju, tls_enabled: bool):
     deploy_ha_apps(juju, tls_deployed=tls_enabled)
-    juju.integrate(APP_NAME, INGRESS_CONFIGURATOR_APP)
+    juju.integrate(APP_NAME, HAPROXY_APP)
 
     juju.wait(
-        lambda status: all_active_idle(status, APP_NAME, INGRESS_CONFIGURATOR_APP, HAPROXY_APP),
+        lambda status: all_active_idle(status, APP_NAME, HAPROXY_APP),
         delay=3,
         timeout=900,
         successes=15,

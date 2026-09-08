@@ -38,9 +38,6 @@ requires:
     interface: tls-certificates
     limit: 1
     optional: true
-  ingress:
-    interface: ingress
-    limit: 1
   oauth:
     interface: oauth
     limit: 1
@@ -48,4 +45,6 @@ requires:
   oauth-ca:
     interface: certificate_transfer
     optional: true
-
+  backend:
+    interface: haproxy-route
+    limit: 1
