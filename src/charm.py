@@ -87,7 +87,7 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
         self.framework.observe(self.on.collect_unit_status, self._on_collect_status)
         self.framework.observe(self.on.collect_app_status, self._on_collect_status)
 
-        for relation in [KAFKA_REL, KAFKA_CONNECT_REL, KARAPACE_REL]:
+        for relation in [KAFKA_REL, KAFKA_CONNECT_REL, KARAPACE_REL, ROUTE_REL]:
             self.framework.observe(self.on[relation].relation_changed, self._on_config_changed)
             self.framework.observe(self.on[relation].relation_broken, self._on_config_changed)
 

@@ -689,7 +689,7 @@ class Context(WithStatus, Object):
     @property
     def endpoint(self) -> str:
         """Returns the UI web server endpoint."""
-        proto = "https" if self.unit.tls.ready else "http"
+        proto = "https" if self.tls_termination == "charm" and self.unit.tls.ready else "http"
         return f"{proto}://{self.unit.internal_address}:{PORT}{self.context_path}"
 
     @property
