@@ -727,6 +727,7 @@ class Context(WithStatus, Object):
             "check_interval": 30,
             "check_rise": 3,
             "check_fall": 1,
+            "check_path": "/actuator/health",
             "check_port": PORT,
             "load_balancing_consistent_hashing": True,
             "load_balancing_algorithm": LoadBalancingAlgorithm.COOKIE,
