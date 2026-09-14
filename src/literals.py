@@ -19,6 +19,7 @@ SERVICE_NAME = "daemon"
 USER_NAME = "_daemon_"
 GROUP = "root"
 CONFIG_DIR = f"/var/snap/{SNAP_NAME}/current/etc/kafka-ui"
+ROUTES_JSON = f"{CONFIG_DIR}/routes.json"
 SUBSTRATE = "vm"
 PORT = 8080
 
@@ -30,6 +31,7 @@ KARAPACE_REL = "karapace-client"
 TLS_REL = "certificates"
 OAUTH_REL = "oauth"
 OAUTH_CA_REL = "oauth-ca"
+ROUTE_REL = "backend"
 
 OAUTH_CA_ALIAS_PREFIX = "oauth-ca-"
 JAVA_CACERTS_DEFAULT_PASSWORD = "changeit"
@@ -142,6 +144,10 @@ class Status(Enum):
     MISSING_KAFKA = StatusLevel(BlockedStatus("application needs Kafka client relation"), "DEBUG")
     NO_KAFKA_CREDENTIALS = StatusLevel(
         WaitingStatus("waiting for Kafka cluster credentials"), "DEBUG"
+    )
+    MISSING_INGRESS_HA = StatusLevel(
+        BlockedStatus("application needs an ingress relation when multiple units are deployed."),
+        "WARNING",
     )
     SERVICE_NOT_RUNNING = StatusLevel(BlockedStatus("service is not running"), "WARNING")
     SERVICE_STARTING = StatusLevel(WaitingStatus("service is still starting up"), "INFO")

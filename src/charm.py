@@ -4,6 +4,7 @@
 
 """Charm the application."""
 
+import json
 import logging
 
 import ops
@@ -14,6 +15,7 @@ from charms.data_platform_libs.v0.data_interfaces import (
     KarapaceRequirerEventHandlers,
 )
 from charms.data_platform_libs.v0.data_models import TypedCharmBase
+from charms.haproxy.v2.haproxy_route import HaproxyRouteRequirer
 from ops import CollectStatusEvent
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_fixed
 
@@ -22,7 +24,16 @@ from core.structured_config import CharmConfig
 from events.oauth import OAuthHandler
 from events.tls import TLSHandler
 from events.user_secrets import SecretsHandler
-from literals import KAFKA_CONNECT_REL, KAFKA_REL, KARAPACE_REL, SUBSTRATE, DebugLevel, Status
+from literals import (
+    KAFKA_CONNECT_REL,
+    KAFKA_REL,
+    KARAPACE_REL,
+    ROUTE_REL,
+    ROUTES_JSON,
+    SUBSTRATE,
+    DebugLevel,
+    Status,
+)
 from managers.config import ConfigManager
 from managers.tls import TLSManager
 from workload import Workload
@@ -52,6 +63,12 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
         )
 
         # Handlers
+        self.haproxy_route_requirer = HaproxyRouteRequirer(
+            self,
+            relation_name=ROUTE_REL,
+            **self.context.route_config,
+        )
+
         self.kafka_events = KafkaRequirerEventHandlers(self, self.context.kafka_client_interface)
         self.connect_events = KafkaConnectRequirerEventHandlers(
             self, self.context.connect_client_interface
@@ -70,7 +87,7 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
         self.framework.observe(self.on.collect_unit_status, self._on_collect_status)
         self.framework.observe(self.on.collect_app_status, self._on_collect_status)
 
-        for relation in [KAFKA_REL, KAFKA_CONNECT_REL, KARAPACE_REL]:
+        for relation in [KAFKA_REL, KAFKA_CONNECT_REL, KARAPACE_REL, ROUTE_REL]:
             self.framework.observe(self.on[relation].relation_changed, self._on_config_changed)
             self.framework.observe(self.on[relation].relation_broken, self._on_config_changed)
 
@@ -94,6 +111,7 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
             return
 
         self.tls.init_unit_tls()
+        self.reconcile_routes()
         self.oauth.reconcile_ca_truststore()
         self.oauth.reconcile_client_config()
 
@@ -166,8 +184,8 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
             self._set_status(Status.INSTALLING)
             return False
 
-        if not self.context.kafka_client.ready:
-            self._set_status(Status.MISSING_KAFKA)
+        if self.context.status != Status.ACTIVE:
+            self._set_status(self.context.status)
             return False
 
         if not self.workload.active():
@@ -181,6 +199,24 @@ class KafkaUiCharm(TypedCharmBase[CharmConfig]):
             return False
 
         return True
+
+    def reconcile_routes(self) -> None:
+        """Reconcile configured routes for the application."""
+        if not self.unit.is_leader():
+            return
+
+        if not self.context.route_relation:
+            return
+
+        route_config = self.context.route_config
+        configured_routes = "\n".join(self.workload.read(ROUTES_JSON)).strip()
+        current_routes = json.dumps(route_config, default=str)
+
+        if current_routes == configured_routes:
+            return
+
+        self.haproxy_route_requirer.provide_haproxy_route_requirements(**route_config)
+        self.workload.write(content=current_routes, path=ROUTES_JSON)
 
 
 if __name__ == "__main__":  # pragma: nocover

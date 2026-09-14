@@ -45,4 +45,6 @@ requires:
   oauth-ca:
     interface: certificate_transfer
     optional: true
-
+  backend:
+    interface: haproxy-route
+    limit: 1

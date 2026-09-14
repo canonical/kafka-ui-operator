@@ -12,15 +12,17 @@ from charms.data_platform_libs.v0.data_interfaces import (
     PLUGIN_URL_NOT_REQUIRED,
     Data,
     DataPeerData,
+    DataPeerOtherUnitData,
     DataPeerUnitData,
     KafkaConnectRequirerData,
     KafkaRequirerData,
     KarapaceRequirerData,
     RequirerData,
 )
+from charms.haproxy.v2.haproxy_route import LoadBalancingAlgorithm
 from ops import Object
 from ops.model import Application, Relation, RelationDataAccessError, Unit
-from typing_extensions import TYPE_CHECKING, override
+from typing_extensions import TYPE_CHECKING, Literal, override
 
 from literals import (
     DEFAULT_SECURITY_MECHANISM,
@@ -30,6 +32,7 @@ from literals import (
     OAUTH_REL,
     PEER_REL,
     PORT,
+    ROUTE_REL,
     SUBSTRATE,
     Status,
     Substrates,
@@ -379,6 +382,18 @@ class OAuthData(Data):
     subclass.
     """
 
+    def __init__(self, model, relation: Relation | None) -> None:
+        if not relation:
+            return
+
+        super().__init__(model, relation.name)
+        self.component = relation.app
+
+    @override
+    def fetch_my_relation_data(self, *args, **kwargs):
+        # Never used, this is requirer data; if omitted, as_dict() fails on non-leaders.
+        return {}
+
     # NOTE: These fields should always be empty. Secrets are fetched using the actual
     # oauth library methods instead.
     SECRET_FIELDS: list[str] = []
@@ -567,7 +582,18 @@ class Context(WithStatus, Object):
         self.karapace_client_interface = KarapaceRequirerData(
             self.model, relation_name=KARAPACE_REL, subject="__kafka-ui", extra_user_roles="admin"
         )
-        self.oauth_client_interface = OAuthData(self.model, relation_name=OAUTH_REL)
+        self.oauth_client_interface = OAuthData(self.model, relation=self.oauth_relation)
+
+    @property
+    def peer_units_data_interfaces(self) -> dict[Unit, DataPeerOtherUnitData]:
+        """The data interface of peer units."""
+        if not self.peer_relation or not self.peer_relation.units:
+            return {}
+
+        return {
+            unit: DataPeerOtherUnitData(model=self.model, unit=unit, relation_name=PEER_REL)
+            for unit in self.peer_relation.units
+        }
 
     @property
     def unit(self) -> UnitContext:
@@ -577,6 +603,22 @@ class Context(WithStatus, Object):
             self.peer_unit_interface,
             component=self.model.unit,
         )
+
+    @property
+    def units(self) -> set[UnitContext]:
+        """Return a set of all peer units."""
+        _units = set()
+        for unit, data_interface in self.peer_units_data_interfaces.items():
+            _units.add(
+                UnitContext(
+                    relation=self.peer_relation,
+                    data_interface=data_interface,
+                    component=unit,
+                )
+            )
+        _units.add(self.unit)
+
+        return _units
 
     @property
     def app(self) -> AppContext:
@@ -596,6 +638,11 @@ class Context(WithStatus, Object):
     def oauth_relation(self) -> Relation | None:
         """The Kafka UI oauth relation."""
         return self.model.get_relation(OAUTH_REL)
+
+    @property
+    def route_relation(self) -> Relation | None:
+        """The route relation."""
+        return self.model.get_relation(ROUTE_REL)
 
     @property
     def kafka_client(self) -> KafkaClientContext:
@@ -642,18 +689,58 @@ class Context(WithStatus, Object):
     @property
     def endpoint(self) -> str:
         """Returns the UI web server endpoint."""
-        proto = "https" if self.unit.tls.ready else "http"
+        proto = "https" if self.tls_termination == "charm" and self.unit.tls.ready else "http"
         return f"{proto}://{self.unit.internal_address}:{PORT}{self.context_path}"
 
     @property
     def ingress_url(self) -> str:
         """Returns the ingress URL if available, otherwise the endpoint."""
-        return self.endpoint
+        if not self.route_relation:
+            return self.endpoint
+
+        if not (ingress_urls := self.charm.haproxy_route_requirer.get_proxied_endpoints()):
+            return ""
+
+        return str(ingress_urls[0]).rstrip("/")
+
+    @property
+    def tls_termination(self) -> Literal["charm", "ingress"]:
+        """Return whether TLS termination should be done in the charm or in the ingress.
+
+        In case of VM, where no ingress relation is active, we use either self-signed certs
+        or a TLS relation to do the TLS termination, otherwise we use ingress.
+        """
+        if SUBSTRATE == "k8s" or self.route_relation:
+            return "ingress"
+
+        return "charm"
+
+    @property
+    def route_config(self) -> dict:
+        """Return the route config."""
+        return {
+            "service": self.charm.app.name,
+            "ports": [PORT],
+            "protocol": "http",
+            "hosts": sorted([unit.internal_address for unit in self.units]),
+            "hostname": self.config.hostname,
+            "check_interval": 30,
+            "check_rise": 3,
+            "check_fall": 1,
+            "check_path": "/actuator/health",
+            "check_port": PORT,
+            "load_balancing_consistent_hashing": True,
+            "load_balancing_algorithm": LoadBalancingAlgorithm.COOKIE,
+            "load_balancing_cookie": "SESSION",  # Kafka UI's cookie name
+        }
 
     @property
     @override
     def status(self) -> Status:
         if not self.kafka_client.ready:
             return self.kafka_client.status
+
+        if self.peer_relation and len(self.peer_relation.units) > 0 and not self.route_relation:
+            return Status.MISSING_INGRESS_HA
 
         return Status.ACTIVE

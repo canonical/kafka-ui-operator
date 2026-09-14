@@ -48,6 +48,7 @@ jobs:
       matrix:
         tox-environments:
           - integration-charm
+          - integration-ha
           - integration-oauth
         tls:
           - "--tls"
