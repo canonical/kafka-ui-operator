@@ -4,6 +4,7 @@
 
 """Collection of globals common to the charm."""
 
+import platform
 from dataclasses import dataclass
 from enum import Enum
 from typing import Literal
@@ -12,8 +13,11 @@ from ops import ActiveStatus, BlockedStatus, MaintenanceStatus, StatusBase, Wait
 
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR"]
 
+_ARCH = platform.processor()
+ARCHITECTURE = "arm64" if _ARCH == "aarch64" else "amd64"
 SNAP_NAME = "charmed-kafka-ui"
-SNAP_REVISION = "3"
+# TODO: fix this after snap release
+SNAP_REVISION = {"amd64": "3", "arm64": "4"}.get(ARCHITECTURE)
 CONTAINER = "kafka-ui"
 SERVICE_NAME = "daemon"
 USER_NAME = "_daemon_"

@@ -19,6 +19,7 @@ import requests
 import yaml
 
 from core.models import AppContext
+from literals import ARCHITECTURE
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ METADATA = yaml.safe_load(Path("./metadata.yaml").read_text())
 APP_NAME = METADATA["name"]
 CONNECT_APP = "kafka-connect"
 CONNECT_CHANNEL = "latest/edge"
+DEFAULT_CONSTRAINTS = {"arch": ARCHITECTURE}
 KAFKA_APP = "kafka"
 KAFKA_CHANNEL = "4/edge"
 KARAPACE_APP = "karapace"
