@@ -13,4 +13,6 @@ resource "juju_application" "ui" {
   machines    = length(var.machines) > 0 ? var.machines : null
   constraints = var.constraints
   config      = var.config
+
+  endpoint_bindings = var.endpoint_bindings
 }
