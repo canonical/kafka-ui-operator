@@ -60,6 +60,7 @@ def test_build_and_deploy(juju: jubilant.Juju, ui_charm: Path, tls_enabled: bool
     juju.deploy(
         KARAPACE_APP,
         app=KARAPACE_APP,
+        base="ubuntu@24.04",
         trust=True,
         channel=KARAPACE_CHANNEL,
         constraints=DEFAULT_CONSTRAINTS,
