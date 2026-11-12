@@ -32,9 +32,8 @@ jobs:
 
   build:
     name: Build charms
-    uses: canonical/data-platform-workflows/.github/workflows/build_charm.yaml@v29.0.0
+    uses: canonical/data-platform-workflows/.github/workflows/build_charm.yaml@v54
     with:
-      charmcraft-snap-channel: latest/candidate  # TODO: remove after charmcraft 3.3 stable release
       path-to-charm-directory: ${{ matrix.path }}
       cache: false  # TODO: fix after being added to ccc
     strategy:
@@ -57,12 +56,11 @@ jobs:
           - "--tls"
           - ""
         exclude:
-          - arch: amd64
+          - arch: arm64
             tox-environments: integration-oauth
     name: ${{ matrix.tox-environments }} ${{ matrix.tls }} - ${{ matrix.arch }}
     needs:
       - lint
-      - unit-test
       - build
     runs-on: ${{ format('self-hosted-linux-{0}-noble-large', matrix.arch) }}
     timeout-minutes: 60
