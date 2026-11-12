@@ -171,7 +171,7 @@ def test_ui(juju: jubilant.Juju, tls_enabled: bool, tmp_path):
     clusters_json = clusters_resp.json()
     logger.info(f"{clusters_json=}")
     assert len(clusters_json) > 0
-    assert clusters_json[0].get("status") == "online"
+    assert clusters_json[0].get("status", "").lower() == "online"
 
 
 def test_password_rotation(juju: jubilant.Juju, apps: list[str]):
