@@ -16,7 +16,7 @@ LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR"]
 _ARCH = platform.processor()
 ARCHITECTURE = "arm64" if _ARCH == "aarch64" else "amd64"
 SNAP_NAME = "charmed-kafka-ui"
-SNAP_REVISION = {"amd64": "5", "arm64": "4"}.get(ARCHITECTURE)
+SNAP_REVISION = {"amd64": "8", "arm64": "7"}.get(ARCHITECTURE)
 CONTAINER = "kafka-ui"
 SERVICE_NAME = "daemon"
 USER_NAME = "_daemon_"
