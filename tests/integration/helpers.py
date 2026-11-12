@@ -31,7 +31,7 @@ DEFAULT_CONSTRAINTS = {"arch": ARCHITECTURE}
 KAFKA_APP = "kafka"
 KAFKA_CHANNEL = "4/edge"
 KARAPACE_APP = "karapace"
-KARAPACE_CHANNEL = "latest/edge"
+KARAPACE_CHANNEL = "latest/edge/arm"  # FIXME: switch to latest/edge when there's an arm release.
 TLS_APP = "self-signed-certificates"
 TLS_CHANNEL = "1/stable"
 

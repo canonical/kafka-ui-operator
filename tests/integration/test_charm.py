@@ -50,8 +50,20 @@ def test_build_and_deploy(juju: jubilant.Juju, ui_charm: Path, tls_enabled: bool
         config={"roles": "broker,controller"},
         constraints=DEFAULT_CONSTRAINTS,
     )
-    juju.deploy(CONNECT_APP, app=CONNECT_APP, trust=True, channel=CONNECT_CHANNEL, constraints=DEFAULT_CONSTRAINTS)
-    juju.deploy(KARAPACE_APP, app=KARAPACE_APP, trust=True, channel=KARAPACE_CHANNEL, constraints=DEFAULT_CONSTRAINTS)
+    juju.deploy(
+        CONNECT_APP,
+        app=CONNECT_APP,
+        trust=True,
+        channel=CONNECT_CHANNEL,
+        constraints=DEFAULT_CONSTRAINTS,
+    )
+    juju.deploy(
+        KARAPACE_APP,
+        app=KARAPACE_APP,
+        trust=True,
+        channel=KARAPACE_CHANNEL,
+        constraints=DEFAULT_CONSTRAINTS,
+    )
     juju.deploy(ui_charm, app=APP_NAME, trust=True, constraints=DEFAULT_CONSTRAINTS)
 
     if tls_enabled:
@@ -59,9 +71,11 @@ def test_build_and_deploy(juju: jubilant.Juju, ui_charm: Path, tls_enabled: bool
 
     _apps = apps + ([] if not tls_enabled else [TLS_APP])
     juju.wait(
-        lambda status: jubilant.all_agents_idle(status, *_apps)
-        and jubilant.all_blocked(status, APP_NAME, CONNECT_APP, KARAPACE_APP)
-        and jubilant.all_active(status, KAFKA_APP),
+        lambda status: (
+            jubilant.all_agents_idle(status, *_apps)
+            and jubilant.all_blocked(status, APP_NAME, CONNECT_APP, KARAPACE_APP)
+            and jubilant.all_active(status, KAFKA_APP)
+        ),
         delay=3,
         timeout=1200,
         successes=10,
