@@ -11,6 +11,7 @@ import jubilant
 import requests
 from helpers import (
     APP_NAME,
+    DEFAULT_CONSTRAINTS,
     HAPROXY_APP,
     KAFKA_APP,
     KAFKA_CHANNEL,
@@ -62,12 +63,18 @@ def test_deploy_ui_and_kafka_active(juju: jubilant.Juju, ui_charm: Path, tls_ena
         trust=True,
         channel=KAFKA_CHANNEL,
         config={"roles": "broker,controller"},
+        constraints=DEFAULT_CONSTRAINTS,
     )
-    juju.deploy(ui_charm, app=APP_NAME, config={"hostname": TEST_HOSTNAME})
+    juju.deploy(
+        ui_charm,
+        app=APP_NAME,
+        config={"hostname": TEST_HOSTNAME},
+        constraints=DEFAULT_CONSTRAINTS,
+    )
     juju.integrate(APP_NAME, KAFKA_APP)
 
     if tls_enabled:
-        juju.deploy(TLS_APP, app=TLS_APP, channel=TLS_CHANNEL, trust=True)
+        juju.deploy(TLS_APP, app=TLS_APP, channel=TLS_CHANNEL, constraints=DEFAULT_CONSTRAINTS)
         juju.integrate(TLS_APP, f"{KAFKA_APP}:certificates")
         juju.integrate(TLS_APP, f"{APP_NAME}:certificates")
 

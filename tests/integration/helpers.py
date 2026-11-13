@@ -19,17 +19,19 @@ import requests
 import yaml
 
 from core.models import AppContext
+from literals import ARCHITECTURE
 
 logger = logging.getLogger(__name__)
 
 METADATA = yaml.safe_load(Path("./metadata.yaml").read_text())
 APP_NAME = METADATA["name"]
 CONNECT_APP = "kafka-connect"
-CONNECT_CHANNEL = "latest/edge"
+CONNECT_CHANNEL = "4/edge"
+DEFAULT_CONSTRAINTS = {"arch": ARCHITECTURE}
 KAFKA_APP = "kafka"
 KAFKA_CHANNEL = "4/edge"
 KARAPACE_APP = "karapace"
-KARAPACE_CHANNEL = "latest/edge"
+KARAPACE_CHANNEL = "latest/edge/arm"  # FIXME: switch to latest/edge when there's an arm release.
 TLS_APP = "self-signed-certificates"
 TLS_CHANNEL = "1/stable"
 
@@ -61,8 +63,16 @@ def deploy_ha_apps(juju: jubilant.Juju, tls_deployed: bool = False) -> None:
     """Deploy and activate the HAProxy app."""
     tls_app = TLS_APP if tls_deployed else "haproxy-ssc"
     if not tls_deployed:
-        juju.deploy(TLS_APP, app="haproxy-ssc", channel=TLS_CHANNEL)
-    juju.deploy(HAPROXY_APP, app=HAPROXY_APP, channel="2.8/edge", base="ubuntu@24.04")
+        juju.deploy(
+            TLS_APP, app="haproxy-ssc", channel=TLS_CHANNEL, constraints=DEFAULT_CONSTRAINTS
+        )
+    juju.deploy(
+        HAPROXY_APP,
+        app=HAPROXY_APP,
+        channel="2.8/edge",
+        base="ubuntu@24.04",
+        constraints=DEFAULT_CONSTRAINTS,
+    )
     juju.integrate(f"{HAPROXY_APP}:certificates", tls_app)
 
 

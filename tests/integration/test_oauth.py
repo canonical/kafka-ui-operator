@@ -205,4 +205,4 @@ async def test_oauth_login_with_identity_bundle(
 
     logger.info(f"{clusters_json=}")
     assert clusters_json
-    assert clusters_json[0].get("status") == "online"
+    assert clusters_json[0].get("status").lower() == "online"

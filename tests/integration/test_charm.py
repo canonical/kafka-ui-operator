@@ -12,6 +12,7 @@ from helpers import (
     APP_NAME,
     CONNECT_APP,
     CONNECT_CHANNEL,
+    DEFAULT_CONSTRAINTS,
     KAFKA_APP,
     KAFKA_CHANNEL,
     KARAPACE_APP,
@@ -47,19 +48,35 @@ def test_build_and_deploy(juju: jubilant.Juju, ui_charm: Path, tls_enabled: bool
         trust=True,
         channel=KAFKA_CHANNEL,
         config={"roles": "broker,controller"},
+        constraints=DEFAULT_CONSTRAINTS,
     )
-    juju.deploy(CONNECT_APP, app=CONNECT_APP, trust=True, channel=CONNECT_CHANNEL)
-    juju.deploy(KARAPACE_APP, app=KARAPACE_APP, trust=True, channel=KARAPACE_CHANNEL)
-    juju.deploy(ui_charm, app=APP_NAME, trust=True)
+    juju.deploy(
+        CONNECT_APP,
+        app=CONNECT_APP,
+        trust=True,
+        channel=CONNECT_CHANNEL,
+        constraints=DEFAULT_CONSTRAINTS,
+    )
+    juju.deploy(
+        KARAPACE_APP,
+        app=KARAPACE_APP,
+        base="ubuntu@24.04",
+        trust=True,
+        channel=KARAPACE_CHANNEL,
+        constraints=DEFAULT_CONSTRAINTS,
+    )
+    juju.deploy(ui_charm, app=APP_NAME, trust=True, constraints=DEFAULT_CONSTRAINTS)
 
     if tls_enabled:
-        juju.deploy(TLS_APP, app=TLS_APP, channel=TLS_CHANNEL, trust=True)
+        juju.deploy(TLS_APP, app=TLS_APP, channel=TLS_CHANNEL, constraints=DEFAULT_CONSTRAINTS)
 
     _apps = apps + ([] if not tls_enabled else [TLS_APP])
     juju.wait(
-        lambda status: jubilant.all_agents_idle(status, *_apps)
-        and jubilant.all_blocked(status, APP_NAME, CONNECT_APP, KARAPACE_APP)
-        and jubilant.all_active(status, KAFKA_APP),
+        lambda status: (
+            jubilant.all_agents_idle(status, *_apps)
+            and jubilant.all_blocked(status, APP_NAME, CONNECT_APP, KARAPACE_APP)
+            and jubilant.all_active(status, KAFKA_APP)
+        ),
         delay=3,
         timeout=1200,
         successes=10,
@@ -154,7 +171,7 @@ def test_ui(juju: jubilant.Juju, tls_enabled: bool, tmp_path):
     clusters_json = clusters_resp.json()
     logger.info(f"{clusters_json=}")
     assert len(clusters_json) > 0
-    assert clusters_json[0].get("status") == "online"
+    assert clusters_json[0].get("status", "").lower() == "online"
 
 
 def test_password_rotation(juju: jubilant.Juju, apps: list[str]):
