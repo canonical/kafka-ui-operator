@@ -574,7 +574,7 @@ class Context(WithStatus, Object):
             self.model,
             relation_name=KAFKA_REL,
             topic="__kafka-ui",
-            extra_user_roles="admin",
+            extra_user_roles="manager",
         )
         self.connect_client_interface = KafkaConnectRequirerData(
             self.model, relation_name=KAFKA_CONNECT_REL, plugin_url=PLUGIN_URL_NOT_REQUIRED

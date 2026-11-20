@@ -234,7 +234,7 @@ class ConfigManager:
                         or None,
                         "schema-registry-auth": self.schema_registry_auth_config,
                         "metrics": {"type": "PROMETHEUS", "port": 9101},
-                        "read-only": not self.context.oauth_relation,
+                        "read-only": False,
                         "polling-throttle-rate": 30,
                         "consumer-properties": {"max.partition.fetch.bytes": 104857600},
                     }
